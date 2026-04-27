@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  dispatcher
+  admin
+}
+
+enum ProductKind {
+  pill
+  liquid
+  syringe
+  tablets
+}
+
+enum DistributionStatus {
+  pending
+  processing
+  delivered
+  cancelled
+}
+
+enum DeliveryStopStatus {
+  done
+  active
+  next
+}
+
+model User {
+  id           String    @id
+  name         String
+  email        String    @unique
+  role         UserRole  @default(dispatcher)
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Outlet {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  area          String
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  stockBatches  StockBatch[]
+  distributions Distribution[]
+  deliveryStops DeliveryStop[]
+}
+
+model Vehicle {
+  id                 String         @id @default(cuid())
+  name               String
+  registrationNumber String         @unique
+  driverName         String
+  defaultDeliveryFee Int            @default(0)
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  distributions      Distribution[]
+  deliveryStops      DeliveryStop[]
+}
+
+model Product {
+  id           String             @id @default(cuid())
+  name         String             @unique
+  category     String
+  kind         ProductKind
+  price        Int
+  color        String
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  stockBatches StockBatch[]
+  items        DistributionItem[]
+}
+
+model StockBatch {
+  id             String   @id @default(cuid())
+  batchNumber    String   @unique
+  productId      String
+  outletId       String
+  expiresAt      DateTime
+  unitsRemaining Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  outlet         Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Distribution {
+  id           String             @id @default(cuid())
+  orderNumber  String             @unique
+  outletId     String
+  vehicleId    String
+  status       DistributionStatus @default(processing)
+  scheduledFor DateTime
+  deliveryFee  Int                @default(0)
+  totalAmount  Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  outlet       Outlet             @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  items        DistributionItem[]
+  deliveryStop DeliveryStop?
+}
+
+model DistributionItem {
+  id             String       @id @default(cuid())
+  distributionId String
+  productId      String
+  quantity       Int
+  unitPrice      Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model DeliveryStop {
+  id             String             @id @default(cuid())
+  distributionId String             @unique
+  outletId       String
+  vehicleId      String
+  routeCode      String
+  sequence       Int
+  status         DeliveryStopStatus @default(next)
+  scheduledTime  DateTime
+  deliveredAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  distribution   Distribution       @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  outlet         Outlet             @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  vehicle        Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+}
