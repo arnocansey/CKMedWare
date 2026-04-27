@@ -4,6 +4,7 @@ import express from "express";
 import { store } from "./data/store.js";
 import type {
   DistributionCreateRequest,
+  InventoryCreateRequest,
   LoginRequest,
   SetupOutletRequest,
   SetupProductRequest,
@@ -107,6 +108,29 @@ export function createApp() {
     res.json(await store.getReports());
   });
 
+  app.get("/api/inventory", async (_req, res) => {
+    res.json(await store.getInventory());
+  });
+
+  app.post("/api/inventory", async (req, res, next) => {
+    const body = req.body as Partial<InventoryCreateRequest> | undefined;
+
+    try {
+      const response = await store.createInventoryItem({
+        drugName: body?.drugName ?? "",
+        quantity: Number(body?.quantity ?? 0),
+        expiryDate: body?.expiryDate ?? "",
+        costPrice: Number(body?.costPrice ?? 0),
+        category: body?.category,
+        kind: body?.kind,
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/distributions/new", async (_req, res) => {
     res.json(await store.getDistributionDraft());
   });
@@ -119,6 +143,7 @@ export function createApp() {
       vehicleId: body?.vehicleId ?? null,
       vehicleName: body?.vehicleName ?? "",
       dateValue: body?.dateValue ?? "",
+      signature: body?.signature ?? "",
       products: body?.products ?? [],
     });
 

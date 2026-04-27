@@ -18,6 +18,9 @@ import type {
   DistributionCreateResponse,
   DistributionDraftResponse,
   ExpiryItem,
+  InventoryCreateRequest,
+  InventoryItem,
+  InventoryResponse,
   LoginResponse,
   OrdersResponse,
   ProductKind,
@@ -148,6 +151,11 @@ function createOrderNumber() {
   return `ORD-${segment}`;
 }
 
+function createBatchNumber() {
+  const segment = randomUUID().slice(0, 8).toUpperCase();
+  return `BATCH-${segment}`;
+}
+
 function determineSeverity(days: number): ExpiryItem["severity"] {
   if (days <= 14) {
     return "urgent";
@@ -203,6 +211,16 @@ function createScheduledDate(dateValue?: string) {
   return nextValue;
 }
 
+function parseExpiryDate(value: string) {
+  const expiryDate = new Date(`${value}T00:00:00`);
+
+  if (!value || Number.isNaN(expiryDate.getTime())) {
+    throw new Error("Enter a valid expiry date.");
+  }
+
+  return expiryDate;
+}
+
 function sumUnits(
   items: Array<{
     quantity: number;
@@ -241,6 +259,21 @@ type DeliveryStopWithRelations = Prisma.DeliveryStopGetPayload<{
     distribution: {
       include: {
         items: true;
+      };
+    };
+  };
+}>;
+
+type OrderDistribution = Prisma.DistributionGetPayload<{
+  include: {
+    outlet: true;
+    items: {
+      include: {
+        product: {
+          include: {
+            stockBatches: true;
+          };
+        };
       };
     };
   };
@@ -475,7 +508,15 @@ export class PrismaStore implements DataStore {
     const distributions = await this.prisma.distribution.findMany({
       include: {
         outlet: true,
-        items: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                stockBatches: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -485,15 +526,35 @@ export class PrismaStore implements DataStore {
 
     return {
       filters: ["All", "Pending", "Processing", "Delivered", "Cancelled"],
-      orders: distributions.map((distribution: DashboardDistribution) => ({
-        id: distribution.orderNumber,
-        outlet: distribution.outlet.name,
-        items: distribution.items.length,
-        units: sumUnits(distribution.items),
-        amount: formatCurrency(distribution.totalAmount),
-        status: distribution.status,
-        time: formatOrderTime(distribution.createdAt),
-      })),
+      orders: distributions.map((distribution: OrderDistribution) => {
+        const lineItems = distribution.items.map((item) => {
+          const batch = [...item.product.stockBatches].sort(
+            (left, right) => left.expiresAt.getTime() - right.expiresAt.getTime(),
+          )[0];
+
+          return {
+            drugName: item.product.name,
+            quantity: item.quantity,
+            expiryDate: batch ? formatDateOnly(batch.expiresAt) : formatDateOnly(distribution.scheduledFor),
+            costPrice: item.unitPrice,
+            batchNumber: batch?.batchNumber ?? "N/A",
+          };
+        });
+
+        return {
+          id: distribution.orderNumber,
+          outlet: distribution.outlet.name,
+          items: distribution.items.length,
+          lineItems,
+          signature: distribution.signature,
+          units: sumUnits(distribution.items),
+          amount: formatCurrency(distribution.totalAmount),
+          amountValue: distribution.totalAmount,
+          status: distribution.status,
+          date: formatDateOnly(distribution.createdAt),
+          time: formatOrderTime(distribution.createdAt),
+        };
+      }),
     };
   }
 
@@ -688,6 +749,98 @@ export class PrismaStore implements DataStore {
     };
   }
 
+  async getInventory(): Promise<InventoryResponse> {
+    await this.ensureBootstrapUser();
+
+    const batches = await this.prisma.stockBatch.findMany({
+      where: {
+        unitsRemaining: {
+          gt: 0,
+        },
+      },
+      include: {
+        product: true,
+      },
+      orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
+    });
+
+    return {
+      items: batches.map((batch: typeof batches[number]): InventoryItem => ({
+        id: batch.id,
+        drugName: batch.product.name,
+        quantity: batch.unitsRemaining,
+        expiryDate: formatDateOnly(batch.expiresAt),
+        costPrice: batch.product.price,
+        batchNumber: batch.batchNumber,
+      })),
+    };
+  }
+
+  async createInventoryItem(input: InventoryCreateRequest): Promise<InventoryItem> {
+    await this.ensureBootstrapUser();
+
+    const drugName = input.drugName.trim();
+    const quantity = Math.max(0, Math.floor(Number(input.quantity) || 0));
+    const expiryDate = parseExpiryDate(input.expiryDate);
+    const costPrice = Math.max(0, Math.round(Number(input.costPrice) || 0));
+    const category = input.category?.trim() || "Medicine";
+    const kind = normalizeProductKind(input.kind ?? "pill");
+
+    if (!drugName || quantity <= 0 || costPrice <= 0) {
+      throw new Error("Drug name, quantity, expiry date, and cost price are required.");
+    }
+
+    const [product, outlet] = await Promise.all([
+      this.prisma.product.upsert({
+        where: { name: drugName },
+        update: {
+          category,
+          kind,
+          price: costPrice,
+          color: colorForProduct(toProductKind(kind)),
+          isActive: true,
+        },
+        create: {
+          name: drugName,
+          category,
+          kind,
+          price: costPrice,
+          color: colorForProduct(toProductKind(kind)),
+        },
+      }),
+      this.prisma.outlet.upsert({
+        where: { name: "Main Pharmacy Store" },
+        update: {
+          area: "Inventory",
+          isActive: true,
+        },
+        create: {
+          name: "Main Pharmacy Store",
+          area: "Inventory",
+        },
+      }),
+    ]);
+
+    const batch = await this.prisma.stockBatch.create({
+      data: {
+        batchNumber: createBatchNumber(),
+        productId: product.id,
+        outletId: outlet.id,
+        expiresAt: expiryDate,
+        unitsRemaining: quantity,
+      },
+    });
+
+    return {
+      id: batch.id,
+      drugName: product.name,
+      quantity: batch.unitsRemaining,
+      expiryDate: formatDateOnly(batch.expiresAt),
+      costPrice: product.price,
+      batchNumber: batch.batchNumber,
+    };
+  }
+
   async getDistributionDraft(): Promise<DistributionDraftResponse> {
     await this.ensureBootstrapUser();
 
@@ -701,7 +854,16 @@ export class PrismaStore implements DataStore {
         orderBy: { name: "asc" },
       }),
       this.prisma.product.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          stockBatches: {
+            some: {
+              unitsRemaining: {
+                gt: 0,
+              },
+            },
+          },
+        },
         orderBy: { name: "asc" },
       }),
     ]);
@@ -800,6 +962,29 @@ export class PrismaStore implements DataStore {
     }
 
     const selectedProductMap = new Map(selectedProducts.map((product) => [product.id, product.quantity]));
+
+    for (const product of products) {
+      const requestedQuantity = selectedProductMap.get(product.id) ?? 0;
+      const stockBatches = await this.prisma.stockBatch.findMany({
+        where: {
+          productId: product.id,
+          unitsRemaining: {
+            gt: 0,
+          },
+        },
+      });
+      const availableQuantity = stockBatches.reduce(
+        (sum: number, batch: typeof stockBatches[number]) => sum + batch.unitsRemaining,
+        0,
+      );
+
+      if (availableQuantity < requestedQuantity) {
+        throw new Error(
+          `Not enough stock for ${product.name}. Available: ${availableQuantity}, requested: ${requestedQuantity}.`,
+        );
+      }
+    }
+
     const lineItems = products.map((product: typeof products[number]) => ({
       productId: product.id,
       quantity: selectedProductMap.get(product.id) ?? 0,
@@ -835,6 +1020,7 @@ export class PrismaStore implements DataStore {
         scheduledFor,
         deliveryFee,
         totalAmount,
+        signature: input.signature?.trim() || null,
         items: {
           create: lineItems,
         },
@@ -850,6 +1036,36 @@ export class PrismaStore implements DataStore {
         },
       },
     });
+
+    for (const item of lineItems) {
+      let remainingQuantity = item.quantity;
+      const stockBatches = await this.prisma.stockBatch.findMany({
+        where: {
+          productId: item.productId,
+          unitsRemaining: {
+            gt: 0,
+          },
+        },
+        orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
+      });
+
+      for (const batch of stockBatches) {
+        if (remainingQuantity <= 0) {
+          break;
+        }
+
+        const deductedQuantity = Math.min(batch.unitsRemaining, remainingQuantity);
+        await this.prisma.stockBatch.update({
+          where: {
+            id: batch.id,
+          },
+          data: {
+            unitsRemaining: batch.unitsRemaining - deductedQuantity,
+          },
+        });
+        remainingQuantity -= deductedQuantity;
+      }
+    }
 
     const response: DistributionCreateResponse = {
       distributionId: distribution.id,

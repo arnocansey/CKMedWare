@@ -41,10 +41,22 @@ export type Order = {
   id: string;
   outlet: string;
   items: number;
+  lineItems: OrderLineItem[];
+  signature: string | null;
   units: number;
   amount: string;
+  amountValue: number;
   status: OrderStatus;
+  date: string;
   time: string;
+};
+
+export type OrderLineItem = {
+  drugName: string;
+  quantity: number;
+  expiryDate: string;
+  costPrice: number;
+  batchNumber: string;
 };
 
 export type OrdersResponse = {
@@ -97,6 +109,28 @@ export type ReportsResponse = {
   topProducts: ReportProduct[];
 };
 
+export type InventoryItem = {
+  id: string;
+  drugName: string;
+  quantity: number;
+  expiryDate: string;
+  costPrice: number;
+  batchNumber: string;
+};
+
+export type InventoryResponse = {
+  items: InventoryItem[];
+};
+
+export type InventoryCreateRequest = {
+  drugName: string;
+  quantity: number;
+  expiryDate: string;
+  costPrice: number;
+  category?: string;
+  kind?: ProductKind;
+};
+
 export type DistributionProduct = {
   id: string;
   name: string;
@@ -146,6 +180,7 @@ export type DistributionCreateRequest = {
   vehicleId?: string | null;
   vehicleName: string;
   dateValue: string;
+  signature?: string;
   products: Array<{
     id: string;
     quantity: number;
@@ -208,12 +243,15 @@ export type SubmittedDistributionRecord = DistributionCreateResponse & {
   createdAt: string;
   dateValue: string;
   deliveryFee: number;
+  signature?: string | null;
   items: number;
   products: Array<{
     id: string;
     name: string;
     price: number;
     quantity: number;
+    expiryDate?: string;
+    batchNumber?: string;
   }>;
 };
 
@@ -224,6 +262,7 @@ export type PersistedDatabase = {
   orders: OrdersResponse;
   deliveries: DeliveriesResponse;
   reports: ReportsResponse;
+  inventory?: InventoryResponse;
   distributionDraft: DistributionDraftResponse;
   submittedDistributions: SubmittedDistributionRecord[];
 };

@@ -166,6 +166,7 @@ export const DistributionScalarFieldEnum = {
   scheduledFor: 'scheduledFor',
   deliveryFee: 'deliveryFee',
   totalAmount: 'totalAmount',
+  signature: 'signature',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

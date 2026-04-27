@@ -45,6 +45,7 @@ export type DistributionMinAggregateOutputType = {
   scheduledFor: Date | null
   deliveryFee: number | null
   totalAmount: number | null
+  signature: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -58,6 +59,7 @@ export type DistributionMaxAggregateOutputType = {
   scheduledFor: Date | null
   deliveryFee: number | null
   totalAmount: number | null
+  signature: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -71,6 +73,7 @@ export type DistributionCountAggregateOutputType = {
   scheduledFor: number
   deliveryFee: number
   totalAmount: number
+  signature: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -96,6 +99,7 @@ export type DistributionMinAggregateInputType = {
   scheduledFor?: true
   deliveryFee?: true
   totalAmount?: true
+  signature?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -109,6 +113,7 @@ export type DistributionMaxAggregateInputType = {
   scheduledFor?: true
   deliveryFee?: true
   totalAmount?: true
+  signature?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -122,6 +127,7 @@ export type DistributionCountAggregateInputType = {
   scheduledFor?: true
   deliveryFee?: true
   totalAmount?: true
+  signature?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -222,6 +228,7 @@ export type DistributionGroupByOutputType = {
   scheduledFor: Date
   deliveryFee: number
   totalAmount: number
+  signature: string | null
   createdAt: Date
   updatedAt: Date
   _count: DistributionCountAggregateOutputType | null
@@ -258,6 +265,7 @@ export type DistributionWhereInput = {
   scheduledFor?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   deliveryFee?: Prisma.IntFilter<"Distribution"> | number
   totalAmount?: Prisma.IntFilter<"Distribution"> | number
+  signature?: Prisma.StringNullableFilter<"Distribution"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   outlet?: Prisma.XOR<Prisma.OutletScalarRelationFilter, Prisma.OutletWhereInput>
@@ -275,6 +283,7 @@ export type DistributionOrderByWithRelationInput = {
   scheduledFor?: Prisma.SortOrder
   deliveryFee?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
+  signature?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   outlet?: Prisma.OutletOrderByWithRelationInput
@@ -295,6 +304,7 @@ export type DistributionWhereUniqueInput = Prisma.AtLeast<{
   scheduledFor?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   deliveryFee?: Prisma.IntFilter<"Distribution"> | number
   totalAmount?: Prisma.IntFilter<"Distribution"> | number
+  signature?: Prisma.StringNullableFilter<"Distribution"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   outlet?: Prisma.XOR<Prisma.OutletScalarRelationFilter, Prisma.OutletWhereInput>
@@ -312,6 +322,7 @@ export type DistributionOrderByWithAggregationInput = {
   scheduledFor?: Prisma.SortOrder
   deliveryFee?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
+  signature?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.DistributionCountOrderByAggregateInput
@@ -333,6 +344,7 @@ export type DistributionScalarWhereWithAggregatesInput = {
   scheduledFor?: Prisma.DateTimeWithAggregatesFilter<"Distribution"> | Date | string
   deliveryFee?: Prisma.IntWithAggregatesFilter<"Distribution"> | number
   totalAmount?: Prisma.IntWithAggregatesFilter<"Distribution"> | number
+  signature?: Prisma.StringNullableWithAggregatesFilter<"Distribution"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Distribution"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Distribution"> | Date | string
 }
@@ -344,6 +356,7 @@ export type DistributionCreateInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   outlet: Prisma.OutletCreateNestedOneWithoutDistributionsInput
@@ -361,6 +374,7 @@ export type DistributionUncheckedCreateInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DistributionItemUncheckedCreateNestedManyWithoutDistributionInput
@@ -374,6 +388,7 @@ export type DistributionUpdateInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   outlet?: Prisma.OutletUpdateOneRequiredWithoutDistributionsNestedInput
@@ -391,6 +406,7 @@ export type DistributionUncheckedUpdateInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DistributionItemUncheckedUpdateManyWithoutDistributionNestedInput
@@ -406,6 +422,7 @@ export type DistributionCreateManyInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -417,6 +434,7 @@ export type DistributionUpdateManyMutationInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -430,6 +448,7 @@ export type DistributionUncheckedUpdateManyInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -453,6 +472,7 @@ export type DistributionCountOrderByAggregateInput = {
   scheduledFor?: Prisma.SortOrder
   deliveryFee?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
+  signature?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -471,6 +491,7 @@ export type DistributionMaxOrderByAggregateInput = {
   scheduledFor?: Prisma.SortOrder
   deliveryFee?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
+  signature?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -484,6 +505,7 @@ export type DistributionMinOrderByAggregateInput = {
   scheduledFor?: Prisma.SortOrder
   deliveryFee?: Prisma.SortOrder
   totalAmount?: Prisma.SortOrder
+  signature?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -586,6 +608,10 @@ export type EnumDistributionStatusFieldUpdateOperationsInput = {
   set?: $Enums.DistributionStatus
 }
 
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
 export type DistributionCreateNestedOneWithoutItemsInput = {
   create?: Prisma.XOR<Prisma.DistributionCreateWithoutItemsInput, Prisma.DistributionUncheckedCreateWithoutItemsInput>
   connectOrCreate?: Prisma.DistributionCreateOrConnectWithoutItemsInput
@@ -621,6 +647,7 @@ export type DistributionCreateWithoutOutletInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   vehicle: Prisma.VehicleCreateNestedOneWithoutDistributionsInput
@@ -636,6 +663,7 @@ export type DistributionUncheckedCreateWithoutOutletInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DistributionItemUncheckedCreateNestedManyWithoutDistributionInput
@@ -680,6 +708,7 @@ export type DistributionScalarWhereInput = {
   scheduledFor?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   deliveryFee?: Prisma.IntFilter<"Distribution"> | number
   totalAmount?: Prisma.IntFilter<"Distribution"> | number
+  signature?: Prisma.StringNullableFilter<"Distribution"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Distribution"> | Date | string
 }
@@ -691,6 +720,7 @@ export type DistributionCreateWithoutVehicleInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   outlet: Prisma.OutletCreateNestedOneWithoutDistributionsInput
@@ -706,6 +736,7 @@ export type DistributionUncheckedCreateWithoutVehicleInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DistributionItemUncheckedCreateNestedManyWithoutDistributionInput
@@ -745,6 +776,7 @@ export type DistributionCreateWithoutItemsInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   outlet: Prisma.OutletCreateNestedOneWithoutDistributionsInput
@@ -761,6 +793,7 @@ export type DistributionUncheckedCreateWithoutItemsInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deliveryStop?: Prisma.DeliveryStopUncheckedCreateNestedOneWithoutDistributionInput
@@ -789,6 +822,7 @@ export type DistributionUpdateWithoutItemsInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   outlet?: Prisma.OutletUpdateOneRequiredWithoutDistributionsNestedInput
@@ -805,6 +839,7 @@ export type DistributionUncheckedUpdateWithoutItemsInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryStop?: Prisma.DeliveryStopUncheckedUpdateOneWithoutDistributionNestedInput
@@ -817,6 +852,7 @@ export type DistributionCreateWithoutDeliveryStopInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   outlet: Prisma.OutletCreateNestedOneWithoutDistributionsInput
@@ -833,6 +869,7 @@ export type DistributionUncheckedCreateWithoutDeliveryStopInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   items?: Prisma.DistributionItemUncheckedCreateNestedManyWithoutDistributionInput
@@ -861,6 +898,7 @@ export type DistributionUpdateWithoutDeliveryStopInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   outlet?: Prisma.OutletUpdateOneRequiredWithoutDistributionsNestedInput
@@ -877,6 +915,7 @@ export type DistributionUncheckedUpdateWithoutDeliveryStopInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DistributionItemUncheckedUpdateManyWithoutDistributionNestedInput
@@ -890,6 +929,7 @@ export type DistributionCreateManyOutletInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -901,6 +941,7 @@ export type DistributionUpdateWithoutOutletInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   vehicle?: Prisma.VehicleUpdateOneRequiredWithoutDistributionsNestedInput
@@ -916,6 +957,7 @@ export type DistributionUncheckedUpdateWithoutOutletInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DistributionItemUncheckedUpdateManyWithoutDistributionNestedInput
@@ -930,6 +972,7 @@ export type DistributionUncheckedUpdateManyWithoutOutletInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -942,6 +985,7 @@ export type DistributionCreateManyVehicleInput = {
   scheduledFor: Date | string
   deliveryFee?: number
   totalAmount?: number
+  signature?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -953,6 +997,7 @@ export type DistributionUpdateWithoutVehicleInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   outlet?: Prisma.OutletUpdateOneRequiredWithoutDistributionsNestedInput
@@ -968,6 +1013,7 @@ export type DistributionUncheckedUpdateWithoutVehicleInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   items?: Prisma.DistributionItemUncheckedUpdateManyWithoutDistributionNestedInput
@@ -982,6 +1028,7 @@ export type DistributionUncheckedUpdateManyWithoutVehicleInput = {
   scheduledFor?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deliveryFee?: Prisma.IntFieldUpdateOperationsInput | number
   totalAmount?: Prisma.IntFieldUpdateOperationsInput | number
+  signature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1026,6 +1073,7 @@ export type DistributionSelect<ExtArgs extends runtime.Types.Extensions.Internal
   scheduledFor?: boolean
   deliveryFee?: boolean
   totalAmount?: boolean
+  signature?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   outlet?: boolean | Prisma.OutletDefaultArgs<ExtArgs>
@@ -1044,6 +1092,7 @@ export type DistributionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   scheduledFor?: boolean
   deliveryFee?: boolean
   totalAmount?: boolean
+  signature?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   outlet?: boolean | Prisma.OutletDefaultArgs<ExtArgs>
@@ -1059,6 +1108,7 @@ export type DistributionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   scheduledFor?: boolean
   deliveryFee?: boolean
   totalAmount?: boolean
+  signature?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   outlet?: boolean | Prisma.OutletDefaultArgs<ExtArgs>
@@ -1074,11 +1124,12 @@ export type DistributionSelectScalar = {
   scheduledFor?: boolean
   deliveryFee?: boolean
   totalAmount?: boolean
+  signature?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type DistributionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNumber" | "outletId" | "vehicleId" | "status" | "scheduledFor" | "deliveryFee" | "totalAmount" | "createdAt" | "updatedAt", ExtArgs["result"]["distribution"]>
+export type DistributionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNumber" | "outletId" | "vehicleId" | "status" | "scheduledFor" | "deliveryFee" | "totalAmount" | "signature" | "createdAt" | "updatedAt", ExtArgs["result"]["distribution"]>
 export type DistributionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   outlet?: boolean | Prisma.OutletDefaultArgs<ExtArgs>
   vehicle?: boolean | Prisma.VehicleDefaultArgs<ExtArgs>
@@ -1112,6 +1163,7 @@ export type $DistributionPayload<ExtArgs extends runtime.Types.Extensions.Intern
     scheduledFor: Date
     deliveryFee: number
     totalAmount: number
+    signature: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["distribution"]>
@@ -1549,6 +1601,7 @@ export interface DistributionFieldRefs {
   readonly scheduledFor: Prisma.FieldRef<"Distribution", 'DateTime'>
   readonly deliveryFee: Prisma.FieldRef<"Distribution", 'Int'>
   readonly totalAmount: Prisma.FieldRef<"Distribution", 'Int'>
+  readonly signature: Prisma.FieldRef<"Distribution", 'String'>
   readonly createdAt: Prisma.FieldRef<"Distribution", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Distribution", 'DateTime'>
 }

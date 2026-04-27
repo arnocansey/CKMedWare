@@ -10,6 +10,9 @@ import type {
   DistributionCreateRequest,
   DistributionCreateResponse,
   DistributionDraftResponse,
+  InventoryCreateRequest,
+  InventoryItem,
+  InventoryResponse,
   LoginResponse,
   OrdersResponse,
   PersistedDatabase,
@@ -57,6 +60,10 @@ function createDistributionId() {
   return `DST-${Date.now().toString().slice(-6)}`;
 }
 
+function createBatchNumber() {
+  return `BATCH-${randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
 function colorForProduct(kind: ProductKind) {
   switch (kind) {
     case "pill":
@@ -84,6 +91,20 @@ function formatScheduleEta(dateValue: string) {
   }
 
   return `Scheduled ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+}
+
+function formatDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function parseExpiryDate(value: string) {
+  const expiryDate = new Date(`${value}T00:00:00`);
+
+  if (!value || Number.isNaN(expiryDate.getTime())) {
+    throw new Error("Enter a valid expiry date.");
+  }
+
+  return expiryDate;
 }
 
 export class FileStore implements DataStore {
@@ -227,7 +248,33 @@ export class FileStore implements DataStore {
   }
 
   async getOrders(): Promise<OrdersResponse> {
-    return this.readDatabase().orders;
+    const database = this.readDatabase();
+    const submittedByOrder = new Map(database.submittedDistributions.map((record) => [record.distributionId, record]));
+
+    return {
+      filters: database.orders.filters,
+      orders: database.orders.orders.map((order) => {
+        const numericAmount = Number(order.amount.replace(/[^0-9.]/g, "").replace(/,/g, ""));
+        const submitted = submittedByOrder.get(order.id);
+
+        return {
+          ...order,
+          lineItems:
+            order.lineItems ??
+            submitted?.products.map((product) => ({
+              drugName: product.name,
+              quantity: product.quantity,
+              expiryDate: product.expiryDate ?? submitted.dateValue,
+              costPrice: product.price,
+              batchNumber: product.batchNumber ?? "N/A",
+            })) ??
+            [],
+          signature: order.signature ?? submitted?.signature ?? null,
+          amountValue: order.amountValue ?? (Number.isFinite(numericAmount) ? numericAmount : 0),
+          date: order.date ?? submitted?.createdAt.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+        };
+      }),
+    };
   }
 
   async getDeliveries(): Promise<DeliveriesResponse> {
@@ -238,8 +285,82 @@ export class FileStore implements DataStore {
     return this.readDatabase().reports;
   }
 
+  async getInventory(): Promise<InventoryResponse> {
+    const database = this.readDatabase();
+    const storedInventory = database.inventory?.items ?? [];
+
+    return {
+      items: storedInventory.sort((left, right) => left.expiryDate.localeCompare(right.expiryDate)),
+    };
+  }
+
+  async createInventoryItem(input: InventoryCreateRequest): Promise<InventoryItem> {
+    const database = this.readDatabase();
+    const drugName = input.drugName.trim();
+    const quantity = Math.max(0, Math.floor(Number(input.quantity) || 0));
+    const expiryDate = parseExpiryDate(input.expiryDate);
+    const costPrice = Math.max(0, Math.round(Number(input.costPrice) || 0));
+    const category = input.category?.trim() || "Medicine";
+    const kind = input.kind ?? "pill";
+
+    if (!drugName || quantity <= 0 || costPrice <= 0) {
+      throw new Error("Drug name, quantity, expiry date, and cost price are required.");
+    }
+
+    const existingProductIndex = database.distributionDraft.products.findIndex(
+      (product) => product.name.toLowerCase() === drugName.toLowerCase(),
+    );
+    const productId =
+      existingProductIndex >= 0
+        ? database.distributionDraft.products[existingProductIndex].id
+        : `prd_${randomUUID()}`;
+    const draftProduct = {
+      id: productId,
+      name: drugName,
+      category,
+      kind,
+      price: costPrice,
+      color: colorForProduct(kind),
+      quantity: 0,
+    };
+
+    if (existingProductIndex >= 0) {
+      database.distributionDraft.products[existingProductIndex] = draftProduct;
+    } else {
+      database.distributionDraft.products.push(draftProduct);
+    }
+
+    const item: InventoryItem = {
+      id: `inv_${randomUUID()}`,
+      drugName,
+      quantity,
+      expiryDate: formatDateOnly(expiryDate),
+      costPrice,
+      batchNumber: createBatchNumber(),
+    };
+
+    database.inventory = {
+      items: [item, ...(database.inventory?.items ?? [])],
+    };
+    this.writeDatabase(database);
+
+    return item;
+  }
+
   async getDistributionDraft(): Promise<DistributionDraftResponse> {
-    return this.readDatabase().distributionDraft;
+    const database = this.readDatabase();
+    const stockedNames = new Set(
+      (database.inventory?.items ?? [])
+        .filter((item) => item.quantity > 0)
+        .map((item) => item.drugName.toLowerCase()),
+    );
+
+    return {
+      ...database.distributionDraft,
+      products: database.distributionDraft.products.filter((product) =>
+        stockedNames.has(product.name.toLowerCase()),
+      ),
+    };
   }
 
   async createDistribution(input: DistributionCreateRequest) {
@@ -270,6 +391,50 @@ export class FileStore implements DataStore {
       throw new Error("Select at least one product quantity before scheduling a distribution.");
     }
 
+    for (const product of selectedLineItems) {
+      const matchingInventory = (database.inventory?.items ?? []).filter(
+        (item) => item.drugName.toLowerCase() === product.name.toLowerCase(),
+      );
+      const availableQuantity = matchingInventory.reduce((sum, item) => sum + item.quantity, 0);
+
+      if (availableQuantity < product.quantity) {
+        throw new Error(
+          `Not enough stock for ${product.name}. Available: ${availableQuantity}, requested: ${product.quantity}.`,
+        );
+      }
+    }
+
+    const selectedBatchLookup = new Map(
+      selectedLineItems.map((product) => {
+        const batch = (database.inventory?.items ?? [])
+          .filter((item) => item.drugName.toLowerCase() === product.name.toLowerCase())
+          .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate))[0];
+
+        return [product.id, batch] as const;
+      }),
+    );
+
+    for (const product of selectedLineItems) {
+      let remainingQuantity = product.quantity;
+      const matchingInventory = (database.inventory?.items ?? [])
+        .filter((item) => item.drugName.toLowerCase() === product.name.toLowerCase())
+        .sort((left, right) => left.expiryDate.localeCompare(right.expiryDate));
+
+      for (const item of matchingInventory) {
+        if (remainingQuantity <= 0) {
+          break;
+        }
+
+        const deductedQuantity = Math.min(item.quantity, remainingQuantity);
+        item.quantity -= deductedQuantity;
+        remainingQuantity -= deductedQuantity;
+      }
+    }
+
+    if (database.inventory) {
+      database.inventory.items = database.inventory.items.filter((item) => item.quantity > 0);
+    }
+
     const units = selectedLineItems.reduce((sum, product) => sum + product.quantity, 0);
     const subtotal = selectedLineItems.reduce((sum, product) => sum + product.quantity * product.price, 0);
     const total = subtotal + database.distributionDraft.deliveryFee;
@@ -287,8 +452,17 @@ export class FileStore implements DataStore {
       createdAt,
       dateValue: input.dateValue || database.distributionDraft.dateValue,
       deliveryFee: database.distributionDraft.deliveryFee,
+      signature: input.signature?.trim() || null,
       items: selectedLineItems.length,
-      products: selectedLineItems,
+      products: selectedLineItems.map((product) => {
+        const batch = selectedBatchLookup.get(product.id);
+
+        return {
+          ...product,
+          expiryDate: batch?.expiryDate,
+          batchNumber: batch?.batchNumber,
+        };
+      }),
     };
 
     database.submittedDistributions.unshift(record);
@@ -296,9 +470,19 @@ export class FileStore implements DataStore {
       id: createOrderId(database.orders.orders.length),
       outlet: record.outletName,
       items: record.items,
+      lineItems: record.products.map((product) => ({
+        drugName: product.name,
+        quantity: product.quantity,
+        expiryDate: product.expiryDate ?? record.dateValue,
+        costPrice: product.price,
+        batchNumber: product.batchNumber ?? "N/A",
+      })),
+      signature: record.signature ?? null,
       units: record.units,
       amount: record.total,
+      amountValue: total,
       status: "processing",
+      date: createdAt.slice(0, 10),
       time: formatCreatedTime(),
     });
 
