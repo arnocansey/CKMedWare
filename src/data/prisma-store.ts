@@ -200,6 +200,13 @@ function isAreaMatch(value: string, needle: string) {
   return value.toLowerCase().includes(needle.toLowerCase());
 }
 
+type DashboardDistribution = Prisma.DistributionGetPayload<{
+  include: {
+    outlet: true;
+    items: true;
+  };
+}>;
+
 type DistributionWithRelations = Prisma.DistributionGetPayload<{
   include: {
     outlet: true;
@@ -353,7 +360,10 @@ export class PrismaStore implements DataStore {
     ]);
 
     const stats = distributions.reduce(
-      (accumulator, distribution) => {
+      (
+        accumulator: { total: number; ashongman: number; nima: number },
+        distribution: DashboardDistribution,
+      ) => {
         const units = sumUnits(distribution.items);
         const areaLabel = `${distribution.outlet.area} ${distribution.outlet.name}`;
         accumulator.total += units;
@@ -377,7 +387,7 @@ export class PrismaStore implements DataStore {
         stats.total > 0 ? "Live distribution snapshot" : "No distributions recorded yet",
       user,
       stats,
-      expiryWatchlist: expiryBatches.map((batch) => {
+      expiryWatchlist: expiryBatches.map((batch: typeof expiryBatches[number]) => {
         const days = Math.max(
           0,
           Math.ceil((startOfDay(batch.expiresAt).getTime() - startOfDay(today).getTime()) / 86400000),
@@ -410,7 +420,7 @@ export class PrismaStore implements DataStore {
 
     return {
       filters: ["All", "Pending", "Processing", "Delivered", "Cancelled"],
-      orders: distributions.map((distribution) => ({
+      orders: distributions.map((distribution: DashboardDistribution) => ({
         id: distribution.orderNumber,
         outlet: distribution.outlet.name,
         items: distribution.items.length,
@@ -468,15 +478,18 @@ export class PrismaStore implements DataStore {
       orderBy: [{ sequence: "asc" }, { scheduledTime: "asc" }],
     });
 
-    const mappedStops = stops.map((stop) => this.mapDeliveryStop(stop));
+    const mappedStops = stops.map((stop: DeliveryStopWithRelations) => this.mapDeliveryStop(stop));
     const focusedStop =
-      mappedStops.find((stop) => stop.status === "active") ??
-      mappedStops.find((stop) => stop.status === "next") ??
+      mappedStops.find((stop: DeliveryStop) => stop.status === "active") ??
+      mappedStops.find((stop: DeliveryStop) => stop.status === "next") ??
       null;
 
     return {
       routeId: stops[0]?.routeCode ?? "",
-      totalUnits: stops.reduce((sum, stop) => sum + sumUnits(stop.distribution.items), 0),
+      totalUnits: stops.reduce(
+        (sum: number, stop: DeliveryStopWithRelations) => sum + sumUnits(stop.distribution.items),
+        0,
+      ),
       activeStop: focusedStop,
       stops: mappedStops,
     };
@@ -546,8 +559,11 @@ export class PrismaStore implements DataStore {
       const day = addDays(currentWeekStart, index);
       const dayKey = formatDateOnly(day);
       const value = currentWeek
-        .filter((distribution) => formatDateOnly(distribution.scheduledFor) === dayKey)
-        .reduce((sum, distribution) => sum + sumUnits(distribution.items), 0);
+        .filter((distribution: DistributionWithRelations) => formatDateOnly(distribution.scheduledFor) === dayKey)
+        .reduce(
+          (sum: number, distribution: DistributionWithRelations) => sum + sumUnits(distribution.items),
+          0,
+        );
 
       return {
         day: day.toLocaleDateString("en-GB", { weekday: "short" }),
@@ -586,7 +602,7 @@ export class PrismaStore implements DataStore {
     }
 
     const topProducts = Array.from(currentProductTotals.entries())
-      .map(([productId, product]) => ({
+      .map(([productId, product]: [string, { name: string; category: string; kind: ProductKind; units: number }]) => ({
         ...product,
         trend: percentageChange(product.units, previousProductTotals.get(productId) ?? 0),
       }))
@@ -636,7 +652,7 @@ export class PrismaStore implements DataStore {
       vehicleName: vehicle?.name ?? "",
       driverName: vehicle?.driverName ?? "",
       deliveryFee: vehicle?.defaultDeliveryFee ?? 0,
-      products: products.map((product) => ({
+      products: products.map((product: typeof products[number]) => ({
         id: product.id,
         name: product.name,
         price: product.price,
@@ -720,13 +736,16 @@ export class PrismaStore implements DataStore {
       }
 
       const selectedProductMap = new Map(selectedProducts.map((product) => [product.id, product.quantity]));
-      const lineItems = products.map((product) => ({
+      const lineItems = products.map((product: typeof products[number]) => ({
         productId: product.id,
         quantity: selectedProductMap.get(product.id) ?? 0,
         unitPrice: product.price,
       }));
-      const units = lineItems.reduce((sum, item) => sum + item.quantity, 0);
-      const subtotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const units = lineItems.reduce((sum: number, item: typeof lineItems[number]) => sum + item.quantity, 0);
+      const subtotal = lineItems.reduce(
+        (sum: number, item: typeof lineItems[number]) => sum + item.quantity * item.unitPrice,
+        0,
+      );
       const scheduledFor = createScheduledDate(input.dateValue);
       const deliveryFee = vehicle.defaultDeliveryFee;
       const totalAmount = subtotal + deliveryFee;
