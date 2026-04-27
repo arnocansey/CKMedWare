@@ -123,6 +123,12 @@ export type LoginRequest = {
   password: string;
 };
 
+export type SignupRequest = {
+  name: string;
+  email: string;
+  password: string;
+};
+
 export type LoginResponse = {
   token: string;
   user: User;
@@ -154,6 +160,48 @@ export type DistributionCreateResponse = {
   total: string;
   eta: string;
   status: "scheduled";
+};
+
+export type SetupOutletRequest = {
+  name: string;
+  area: string;
+};
+
+export type SetupOutletResponse = {
+  id: string;
+  name: string;
+  area: string;
+};
+
+export type SetupVehicleRequest = {
+  name: string;
+  registrationNumber: string;
+  driverName: string;
+  defaultDeliveryFee: number;
+};
+
+export type SetupVehicleResponse = {
+  id: string;
+  name: string;
+  registrationNumber: string;
+  driverName: string;
+  defaultDeliveryFee: number;
+};
+
+export type SetupProductRequest = {
+  name: string;
+  category: string;
+  kind: ProductKind;
+  price: number;
+};
+
+export type SetupProductResponse = {
+  id: string;
+  name: string;
+  category: string;
+  kind: ProductKind;
+  price: number;
+  color: string;
 };
 
 export type SubmittedDistributionRecord = DistributionCreateResponse & {

@@ -5,11 +5,15 @@ import { store } from "./data/store.js";
 import type {
   DistributionCreateRequest,
   LoginRequest,
+  SetupOutletRequest,
+  SetupProductRequest,
+  SetupVehicleRequest,
+  SignupRequest,
   User,
 } from "./types.js";
 
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (req.path === "/health" || req.path === "/api/auth/login") {
+  if (req.path === "/health" || req.path === "/api/auth/login" || req.path === "/api/auth/signup") {
     next();
     return;
   }
@@ -70,6 +74,22 @@ export function createApp() {
     res.json(response);
   });
 
+  app.post("/api/auth/signup", async (req, res, next) => {
+    const body = req.body as Partial<SignupRequest> | undefined;
+
+    try {
+      const response = await store.signup({
+        name: body?.name ?? "",
+        email: body?.email ?? "",
+        password: body?.password ?? "",
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/dashboard", async (_req, res) => {
     const user = res.locals.user as User;
     res.json(await store.getDashboard(user));
@@ -103,6 +123,55 @@ export function createApp() {
     });
 
     res.status(201).json(response);
+  });
+
+  app.post("/api/setup/outlets", async (req, res, next) => {
+    const body = req.body as Partial<SetupOutletRequest> | undefined;
+
+    try {
+      const response = await store.createOutlet({
+        name: body?.name ?? "",
+        area: body?.area ?? "",
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/setup/vehicles", async (req, res, next) => {
+    const body = req.body as Partial<SetupVehicleRequest> | undefined;
+
+    try {
+      const response = await store.createVehicle({
+        name: body?.name ?? "",
+        registrationNumber: body?.registrationNumber ?? "",
+        driverName: body?.driverName ?? "",
+        defaultDeliveryFee: Number(body?.defaultDeliveryFee ?? 0),
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/setup/products", async (req, res, next) => {
+    const body = req.body as Partial<SetupProductRequest> | undefined;
+
+    try {
+      const response = await store.createProduct({
+        name: body?.name ?? "",
+        category: body?.category ?? "",
+        kind: body?.kind ?? "pill",
+        price: Number(body?.price ?? 0),
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

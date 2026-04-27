@@ -22,6 +22,13 @@ import type {
   OrdersResponse,
   ProductKind,
   ReportsResponse,
+  SetupOutletRequest,
+  SetupOutletResponse,
+  SetupProductRequest,
+  SetupProductResponse,
+  SetupVehicleRequest,
+  SetupVehicleResponse,
+  SignupRequest,
   User,
 } from "../types.js";
 
@@ -172,6 +179,14 @@ function toProductKind(kind: PrismaProductKind): ProductKind {
   return kind;
 }
 
+function normalizeProductKind(kind: ProductKind): PrismaProductKind {
+  if (["pill", "liquid", "syringe", "tablets"].includes(kind)) {
+    return kind;
+  }
+
+  throw new Error("Select a valid product type.");
+}
+
 function createScheduledDate(dateValue?: string) {
   if (!dateValue) {
     const now = new Date();
@@ -285,6 +300,56 @@ export class PrismaStore implements DataStore {
 
     await this.prisma.session.deleteMany({
       where: { userId: user.id },
+    });
+
+    const token = createToken();
+    await this.prisma.session.create({
+      data: {
+        token,
+        userId: user.id,
+      },
+    });
+
+    const result: LoginResponse = {
+      token,
+      user: toUser(user),
+    };
+
+    return result;
+  }
+
+  async signup(input: SignupRequest) {
+    await this.ensureBootstrapUser();
+
+    const name = input.name.trim();
+    const email = input.email.trim().toLowerCase();
+    const password = input.password.trim();
+
+    if (!name || !email || !password) {
+      throw new Error("Name, email, and password are required.");
+    }
+
+    if (password.length < 6) {
+      throw new Error("Password must be at least 6 characters.");
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existing) {
+      throw new Error("An account already exists for this email.");
+    }
+
+    const hasUsers = (await this.prisma.user.count()) > 0;
+    const user = await this.prisma.user.create({
+      data: {
+        id: `usr_${randomUUID()}`,
+        name,
+        email,
+        passwordHash: hashPassword(password),
+        role: hasUsers ? UserRole.dispatcher : UserRole.admin,
+      },
     });
 
     const token = createToken();
@@ -797,5 +862,112 @@ export class PrismaStore implements DataStore {
     };
 
     return response;
+  }
+
+  async createOutlet(input: SetupOutletRequest): Promise<SetupOutletResponse> {
+    await this.ensureBootstrapUser();
+
+    const name = input.name.trim();
+    const area = input.area.trim();
+
+    if (!name || !area) {
+      throw new Error("Outlet name and area are required.");
+    }
+
+    const outlet = await this.prisma.outlet.upsert({
+      where: { name },
+      update: {
+        area,
+        isActive: true,
+      },
+      create: {
+        name,
+        area,
+      },
+    });
+
+    return {
+      id: outlet.id,
+      name: outlet.name,
+      area: outlet.area,
+    };
+  }
+
+  async createVehicle(input: SetupVehicleRequest): Promise<SetupVehicleResponse> {
+    await this.ensureBootstrapUser();
+
+    const name = input.name.trim();
+    const registrationNumber = input.registrationNumber.trim().toUpperCase();
+    const driverName = input.driverName.trim();
+    const defaultDeliveryFee = Math.max(0, Math.round(Number(input.defaultDeliveryFee) || 0));
+
+    if (!name || !registrationNumber || !driverName) {
+      throw new Error("Vehicle name, registration number, and driver name are required.");
+    }
+
+    const vehicle = await this.prisma.vehicle.upsert({
+      where: { registrationNumber },
+      update: {
+        name,
+        driverName,
+        defaultDeliveryFee,
+        isActive: true,
+      },
+      create: {
+        name,
+        registrationNumber,
+        driverName,
+        defaultDeliveryFee,
+      },
+    });
+
+    return {
+      id: vehicle.id,
+      name: vehicle.name,
+      registrationNumber: vehicle.registrationNumber,
+      driverName: vehicle.driverName,
+      defaultDeliveryFee: vehicle.defaultDeliveryFee,
+    };
+  }
+
+  async createProduct(input: SetupProductRequest): Promise<SetupProductResponse> {
+    await this.ensureBootstrapUser();
+
+    const name = input.name.trim();
+    const category = input.category.trim();
+    const kind = normalizeProductKind(input.kind);
+    const price = Math.max(0, Math.round(Number(input.price) || 0));
+    const color = colorForProduct(toProductKind(kind));
+
+    if (!name || !category || price <= 0) {
+      throw new Error("Product name, category, and a positive price are required.");
+    }
+
+    const product = await this.prisma.product.upsert({
+      where: { name },
+      update: {
+        category,
+        kind,
+        price,
+        color,
+        isActive: true,
+      },
+      create: {
+        name,
+        category,
+        kind,
+        price,
+        color,
+      },
+    });
+
+    return {
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      kind: toProductKind(product.kind),
+      price: product.price,
+      color: product.color,
+    };
   }
 }

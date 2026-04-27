@@ -13,7 +13,15 @@ import type {
   LoginResponse,
   OrdersResponse,
   PersistedDatabase,
+  ProductKind,
   ReportsResponse,
+  SetupOutletRequest,
+  SetupOutletResponse,
+  SetupProductRequest,
+  SetupProductResponse,
+  SetupVehicleRequest,
+  SetupVehicleResponse,
+  SignupRequest,
   SubmittedDistributionRecord,
   User,
 } from "../types.js";
@@ -47,6 +55,21 @@ function createOrderId(existingCount: number) {
 
 function createDistributionId() {
   return `DST-${Date.now().toString().slice(-6)}`;
+}
+
+function colorForProduct(kind: ProductKind) {
+  switch (kind) {
+    case "pill":
+      return "#0F3D1F";
+    case "liquid":
+      return "#E89B2A";
+    case "syringe":
+      return "#2A6FE8";
+    case "tablets":
+      return "#1D8A78";
+    default:
+      return "#0F3D1F";
+  }
 }
 
 function formatScheduleEta(dateValue: string) {
@@ -96,6 +119,58 @@ export class FileStore implements DataStore {
     }
 
     const token = createToken();
+    database.sessions = database.sessions
+      .filter((entry) => entry.userId !== user.id)
+      .concat({
+        token,
+        userId: user.id,
+        createdAt: nowIso(),
+      });
+    this.writeDatabase(database);
+
+    const result: LoginResponse = {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+
+    return result;
+  }
+
+  async signup(input: SignupRequest) {
+    const database = this.readDatabase();
+    const name = input.name.trim();
+    const email = input.email.trim().toLowerCase();
+    const password = input.password.trim();
+
+    if (!name || !email || !password) {
+      throw new Error("Name, email, and password are required.");
+    }
+
+    if (password.length < 6) {
+      throw new Error("Password must be at least 6 characters.");
+    }
+
+    const existing = database.users.find((entry) => entry.email.toLowerCase() === email);
+
+    if (existing) {
+      throw new Error("An account already exists for this email.");
+    }
+
+    const user = {
+      id: `usr_${randomUUID()}`,
+      name,
+      email,
+      role: database.users.length === 0 ? "admin" as const : "dispatcher" as const,
+      passwordHash: hashPassword(password),
+    };
+    const token = createToken();
+
+    database.users.push(user);
     database.sessions = database.sessions
       .filter((entry) => entry.userId !== user.id)
       .concat({
@@ -254,5 +329,86 @@ export class FileStore implements DataStore {
     };
 
     return response;
+  }
+
+  async createOutlet(input: SetupOutletRequest): Promise<SetupOutletResponse> {
+    const database = this.readDatabase();
+    const name = input.name.trim();
+    const area = input.area.trim();
+
+    if (!name || !area) {
+      throw new Error("Outlet name and area are required.");
+    }
+
+    const id = database.distributionDraft.outletId ?? `out_${randomUUID()}`;
+    database.distributionDraft.outletId = id;
+    database.distributionDraft.outletName = name;
+    this.writeDatabase(database);
+
+    return { id, name, area };
+  }
+
+  async createVehicle(input: SetupVehicleRequest): Promise<SetupVehicleResponse> {
+    const database = this.readDatabase();
+    const name = input.name.trim();
+    const registrationNumber = input.registrationNumber.trim().toUpperCase();
+    const driverName = input.driverName.trim();
+    const defaultDeliveryFee = Math.max(0, Math.round(Number(input.defaultDeliveryFee) || 0));
+
+    if (!name || !registrationNumber || !driverName) {
+      throw new Error("Vehicle name, registration number, and driver name are required.");
+    }
+
+    const id = database.distributionDraft.vehicleId ?? `veh_${randomUUID()}`;
+    database.distributionDraft.vehicleId = id;
+    database.distributionDraft.vehicleName = name;
+    database.distributionDraft.driverName = driverName;
+    database.distributionDraft.deliveryFee = defaultDeliveryFee;
+    this.writeDatabase(database);
+
+    return { id, name, registrationNumber, driverName, defaultDeliveryFee };
+  }
+
+  async createProduct(input: SetupProductRequest): Promise<SetupProductResponse> {
+    const database = this.readDatabase();
+    const name = input.name.trim();
+    const category = input.category.trim();
+    const kind = input.kind;
+    const price = Math.max(0, Math.round(Number(input.price) || 0));
+    const color = colorForProduct(kind);
+
+    if (!name || !category || price <= 0) {
+      throw new Error("Product name, category, and a positive price are required.");
+    }
+
+    const existingIndex = database.distributionDraft.products.findIndex(
+      (product) => product.name.toLowerCase() === name.toLowerCase(),
+    );
+    const product = {
+      id: existingIndex >= 0 ? database.distributionDraft.products[existingIndex].id : `prd_${randomUUID()}`,
+      name,
+      category,
+      kind,
+      price,
+      color,
+      quantity: 0,
+    };
+
+    if (existingIndex >= 0) {
+      database.distributionDraft.products[existingIndex] = product;
+    } else {
+      database.distributionDraft.products.push(product);
+    }
+
+    this.writeDatabase(database);
+
+    return {
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      kind: product.kind,
+      price: product.price,
+      color: product.color,
+    };
   }
 }
