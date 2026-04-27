@@ -677,127 +677,125 @@ export class PrismaStore implements DataStore {
       throw new Error("Select at least one product quantity before scheduling a distribution.");
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const outlet =
-        (input.outletId
-          ? await tx.outlet.findFirst({
-              where: {
-                id: input.outletId,
-                isActive: true,
-              },
-            })
-          : null) ??
-        (input.outletName
-          ? await tx.outlet.findFirst({
-              where: {
-                name: input.outletName,
-                isActive: true,
-              },
-            })
-          : null);
-
-      if (!outlet) {
-        throw new Error("Create an outlet in the backend before scheduling a distribution.");
-      }
-
-      const vehicle =
-        (input.vehicleId
-          ? await tx.vehicle.findFirst({
-              where: {
-                id: input.vehicleId,
-                isActive: true,
-              },
-            })
-          : null) ??
-        (input.vehicleName
-          ? await tx.vehicle.findFirst({
-              where: {
-                name: input.vehicleName,
-                isActive: true,
-              },
-            })
-          : null);
-
-      if (!vehicle) {
-        throw new Error("Create a vehicle in the backend before scheduling a distribution.");
-      }
-
-      const products = await tx.product.findMany({
-        where: {
-          id: {
-            in: selectedProducts.map((product) => product.id),
-          },
-          isActive: true,
-        },
-      });
-
-      if (products.length !== selectedProducts.length) {
-        throw new Error("One or more selected products no longer exist.");
-      }
-
-      const selectedProductMap = new Map(selectedProducts.map((product) => [product.id, product.quantity]));
-      const lineItems = products.map((product: typeof products[number]) => ({
-        productId: product.id,
-        quantity: selectedProductMap.get(product.id) ?? 0,
-        unitPrice: product.price,
-      }));
-      const units = lineItems.reduce((sum: number, item: typeof lineItems[number]) => sum + item.quantity, 0);
-      const subtotal = lineItems.reduce(
-        (sum: number, item: typeof lineItems[number]) => sum + item.quantity * item.unitPrice,
-        0,
-      );
-      const scheduledFor = createScheduledDate(input.dateValue);
-      const deliveryFee = vehicle.defaultDeliveryFee;
-      const totalAmount = subtotal + deliveryFee;
-      const scheduleDayStart = startOfDay(scheduledFor);
-      const scheduleDayEnd = addDays(scheduleDayStart, 1);
-      const sequence =
-        (await tx.deliveryStop.count({
-          where: {
-            vehicleId: vehicle.id,
-            scheduledTime: {
-              gte: scheduleDayStart,
-              lt: scheduleDayEnd,
+    const outlet =
+      (input.outletId
+        ? await this.prisma.outlet.findFirst({
+            where: {
+              id: input.outletId,
+              isActive: true,
             },
-          },
-        })) + 1;
-
-      const distribution = await tx.distribution.create({
-        data: {
-          orderNumber: createOrderNumber(),
-          outletId: outlet.id,
-          vehicleId: vehicle.id,
-          status: DistributionStatus.pending,
-          scheduledFor,
-          deliveryFee,
-          totalAmount,
-          items: {
-            create: lineItems,
-          },
-          deliveryStop: {
-            create: {
-              outletId: outlet.id,
-              vehicleId: vehicle.id,
-              routeCode: vehicle.registrationNumber,
-              sequence,
-              status: DeliveryStopStatus.next,
-              scheduledTime: scheduledFor,
+          })
+        : null) ??
+      (input.outletName
+        ? await this.prisma.outlet.findFirst({
+            where: {
+              name: input.outletName,
+              isActive: true,
             },
-          },
+          })
+        : null);
+
+    if (!outlet) {
+      throw new Error("Create an outlet in the backend before scheduling a distribution.");
+    }
+
+    const vehicle =
+      (input.vehicleId
+        ? await this.prisma.vehicle.findFirst({
+            where: {
+              id: input.vehicleId,
+              isActive: true,
+            },
+          })
+        : null) ??
+      (input.vehicleName
+        ? await this.prisma.vehicle.findFirst({
+            where: {
+              name: input.vehicleName,
+              isActive: true,
+            },
+          })
+        : null);
+
+    if (!vehicle) {
+      throw new Error("Create a vehicle in the backend before scheduling a distribution.");
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        id: {
+          in: selectedProducts.map((product) => product.id),
         },
-      });
-
-      const response: DistributionCreateResponse = {
-        distributionId: distribution.id,
-        outletName: outlet.name,
-        vehicleName: vehicle.name,
-        units,
-        total: formatCurrency(totalAmount),
-        eta: formatScheduleEta(scheduledFor),
-        status: "scheduled",
-      };
-
-      return response;
+        isActive: true,
+      },
     });
+
+    if (products.length !== selectedProducts.length) {
+      throw new Error("One or more selected products no longer exist.");
+    }
+
+    const selectedProductMap = new Map(selectedProducts.map((product) => [product.id, product.quantity]));
+    const lineItems = products.map((product: typeof products[number]) => ({
+      productId: product.id,
+      quantity: selectedProductMap.get(product.id) ?? 0,
+      unitPrice: product.price,
+    }));
+    const units = lineItems.reduce((sum: number, item: typeof lineItems[number]) => sum + item.quantity, 0);
+    const subtotal = lineItems.reduce(
+      (sum: number, item: typeof lineItems[number]) => sum + item.quantity * item.unitPrice,
+      0,
+    );
+    const scheduledFor = createScheduledDate(input.dateValue);
+    const deliveryFee = vehicle.defaultDeliveryFee;
+    const totalAmount = subtotal + deliveryFee;
+    const scheduleDayStart = startOfDay(scheduledFor);
+    const scheduleDayEnd = addDays(scheduleDayStart, 1);
+    const sequence =
+      (await this.prisma.deliveryStop.count({
+        where: {
+          vehicleId: vehicle.id,
+          scheduledTime: {
+            gte: scheduleDayStart,
+            lt: scheduleDayEnd,
+          },
+        },
+      })) + 1;
+
+    const distribution = await this.prisma.distribution.create({
+      data: {
+        orderNumber: createOrderNumber(),
+        outletId: outlet.id,
+        vehicleId: vehicle.id,
+        status: DistributionStatus.pending,
+        scheduledFor,
+        deliveryFee,
+        totalAmount,
+        items: {
+          create: lineItems,
+        },
+        deliveryStop: {
+          create: {
+            outletId: outlet.id,
+            vehicleId: vehicle.id,
+            routeCode: vehicle.registrationNumber,
+            sequence,
+            status: DeliveryStopStatus.next,
+            scheduledTime: scheduledFor,
+          },
+        },
+      },
+    });
+
+    const response: DistributionCreateResponse = {
+      distributionId: distribution.id,
+      outletName: outlet.name,
+      vehicleName: vehicle.name,
+      units,
+      total: formatCurrency(totalAmount),
+      eta: formatScheduleEta(scheduledFor),
+      status: "scheduled",
+    };
+
+    return response;
   }
 }
