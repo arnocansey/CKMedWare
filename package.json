@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "pnpm prisma:generate && tsc -p tsconfig.json",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit",
     "postinstall": "pnpm prisma:generate",
     "prisma:generate": "prisma generate",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "pg": "^8.20.0"
   },
