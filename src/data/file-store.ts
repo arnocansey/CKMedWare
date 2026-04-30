@@ -5,16 +5,23 @@ import path from "node:path";
 import { createSeedDatabase } from "./seed.js";
 import type { DataStore } from "./data-store.js";
 import type {
+  Branch,
+  BranchListResponse,
+  BranchUpdateRequest,
   DashboardResponse,
   DeliveriesResponse,
   DistributionCreateRequest,
   DistributionCreateResponse,
   DistributionDraftResponse,
   InventoryCreateRequest,
+  InventoryUpdateRequest,
   InventoryItem,
   InventoryResponse,
   LoginResponse,
   OrdersResponse,
+  PurchaseOrder,
+  PurchaseOrderCreateRequest,
+  PurchaseOrdersResponse,
   PersistedDatabase,
   ProductKind,
   ReportsResponse,
@@ -277,6 +284,18 @@ export class FileStore implements DataStore {
     };
   }
 
+  async getPurchaseOrders(): Promise<PurchaseOrdersResponse> {
+    throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
+  }
+
+  async createPurchaseOrder(_input: PurchaseOrderCreateRequest): Promise<PurchaseOrder> {
+    throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
+  }
+
+  async receivePurchaseOrder(_id: string): Promise<PurchaseOrder> {
+    throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
+  }
+
   async getDeliveries(): Promise<DeliveriesResponse> {
     return this.readDatabase().deliveries;
   }
@@ -291,6 +310,53 @@ export class FileStore implements DataStore {
 
     return {
       items: storedInventory.sort((left, right) => left.expiryDate.localeCompare(right.expiryDate)),
+    };
+  }
+
+  async listBranches(): Promise<BranchListResponse> {
+    const database = this.readDatabase();
+    const outletId = database.distributionDraft.outletId;
+    const outletName = database.distributionDraft.outletName;
+
+    if (!outletId || !outletName) {
+      return { branches: [] };
+    }
+
+    return {
+      branches: [
+        {
+          id: outletId,
+          name: outletName,
+          area: "Unknown",
+          isActive: true,
+        },
+      ],
+    };
+  }
+
+  async updateBranch(id: string, input: BranchUpdateRequest): Promise<Branch> {
+    const database = this.readDatabase();
+
+    if (!database.distributionDraft.outletId || database.distributionDraft.outletId !== id) {
+      throw new Error("Branch not found.");
+    }
+
+    const name = input.name?.trim();
+
+    if (name !== undefined && !name) {
+      throw new Error("Branch name is required.");
+    }
+
+    if (name) {
+      database.distributionDraft.outletName = name;
+      this.writeDatabase(database);
+    }
+
+    return {
+      id,
+      name: database.distributionDraft.outletName,
+      area: "Unknown",
+      isActive: input.isActive ?? true,
     };
   }
 
@@ -345,6 +411,57 @@ export class FileStore implements DataStore {
     this.writeDatabase(database);
 
     return item;
+  }
+
+  async updateInventoryItem(id: string, input: InventoryUpdateRequest): Promise<InventoryItem> {
+    const database = this.readDatabase();
+    const items = database.inventory?.items ?? [];
+    const index = items.findIndex((item) => item.id === id);
+
+    if (index < 0) {
+      throw new Error("Inventory item not found.");
+    }
+
+    const current = items[index];
+    const quantity =
+      input.quantity === undefined ? current.quantity : Math.max(0, Math.floor(Number(input.quantity) || 0));
+    const expiryDate = input.expiryDate === undefined ? current.expiryDate : formatDateOnly(parseExpiryDate(input.expiryDate));
+    const costPrice =
+      input.costPrice === undefined ? current.costPrice : Math.max(0, Math.round(Number(input.costPrice) || 0));
+
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than 0.");
+    }
+
+    if (costPrice <= 0) {
+      throw new Error("Cost price must be greater than 0.");
+    }
+
+    const updated: InventoryItem = {
+      ...current,
+      quantity,
+      expiryDate,
+      costPrice,
+    };
+
+    items[index] = updated;
+    database.inventory = { items };
+    this.writeDatabase(database);
+
+    return updated;
+  }
+
+  async deleteInventoryItem(id: string): Promise<void> {
+    const database = this.readDatabase();
+    const items = database.inventory?.items ?? [];
+    const nextItems = items.filter((item) => item.id !== id);
+
+    if (nextItems.length === items.length) {
+      throw new Error("Inventory item not found.");
+    }
+
+    database.inventory = { items: nextItems };
+    this.writeDatabase(database);
   }
 
   async getDistributionDraft(): Promise<DistributionDraftResponse> {

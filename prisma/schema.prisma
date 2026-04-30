@@ -32,6 +32,11 @@ enum DeliveryStopStatus {
   next
 }
 
+enum PurchaseOrderStatus {
+  pending
+  received
+}
+
 model User {
   id           String    @id
   name         String
@@ -102,6 +107,30 @@ model StockBatch {
   updatedAt      DateTime @updatedAt
   outlet         Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
   product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  orderNumber  String              @unique
+  supplierName String
+  status       PurchaseOrderStatus @default(pending)
+  receivedAt   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  items        PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  drugName        String
+  quantity        Int
+  expiresAt       DateTime
+  costPrice       Int
+  batchNumber     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 }
 
 model Distribution {

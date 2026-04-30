@@ -57,6 +57,8 @@ export const ModelName = {
   Vehicle: 'Vehicle',
   Product: 'Product',
   StockBatch: 'StockBatch',
+  PurchaseOrder: 'PurchaseOrder',
+  PurchaseOrderItem: 'PurchaseOrderItem',
   Distribution: 'Distribution',
   DistributionItem: 'DistributionItem',
   DeliveryStop: 'DeliveryStop'
@@ -155,6 +157,34 @@ export const StockBatchScalarFieldEnum = {
 } as const
 
 export type StockBatchScalarFieldEnum = (typeof StockBatchScalarFieldEnum)[keyof typeof StockBatchScalarFieldEnum]
+
+
+export const PurchaseOrderScalarFieldEnum = {
+  id: 'id',
+  orderNumber: 'orderNumber',
+  supplierName: 'supplierName',
+  status: 'status',
+  receivedAt: 'receivedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PurchaseOrderScalarFieldEnum = (typeof PurchaseOrderScalarFieldEnum)[keyof typeof PurchaseOrderScalarFieldEnum]
+
+
+export const PurchaseOrderItemScalarFieldEnum = {
+  id: 'id',
+  purchaseOrderId: 'purchaseOrderId',
+  drugName: 'drugName',
+  quantity: 'quantity',
+  expiresAt: 'expiresAt',
+  costPrice: 'costPrice',
+  batchNumber: 'batchNumber',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PurchaseOrderItemScalarFieldEnum = (typeof PurchaseOrderItemScalarFieldEnum)[keyof typeof PurchaseOrderItemScalarFieldEnum]
 
 
 export const DistributionScalarFieldEnum = {

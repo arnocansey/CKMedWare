@@ -72,6 +72,16 @@ export type Product = Prisma.ProductModel
  */
 export type StockBatch = Prisma.StockBatchModel
 /**
+ * Model PurchaseOrder
+ * 
+ */
+export type PurchaseOrder = Prisma.PurchaseOrderModel
+/**
+ * Model PurchaseOrderItem
+ * 
+ */
+export type PurchaseOrderItem = Prisma.PurchaseOrderItemModel
+/**
  * Model Distribution
  * 
  */

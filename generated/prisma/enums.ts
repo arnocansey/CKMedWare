@@ -44,3 +44,11 @@ export const DeliveryStopStatus = {
 } as const
 
 export type DeliveryStopStatus = (typeof DeliveryStopStatus)[keyof typeof DeliveryStopStatus]
+
+
+export const PurchaseOrderStatus = {
+  pending: 'pending',
+  received: 'received'
+} as const
+
+export type PurchaseOrderStatus = (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus]

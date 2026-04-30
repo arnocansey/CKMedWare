@@ -1,12 +1,18 @@
 import type {
+  BranchListResponse,
+  BranchUpdateRequest,
   DashboardResponse,
   DeliveriesResponse,
   DistributionCreateRequest,
   DistributionCreateResponse,
   InventoryCreateRequest,
+  InventoryUpdateRequest,
   InventoryResponse,
   LoginResponse,
   OrdersResponse,
+  PurchaseOrder,
+  PurchaseOrderCreateRequest,
+  PurchaseOrdersResponse,
   ReportsResponse,
   SetupOutletRequest,
   SetupOutletResponse,
@@ -24,12 +30,19 @@ export interface DataStore {
   getUserForToken(token: string): Promise<User | null>;
   getDashboard(user: User): Promise<DashboardResponse>;
   getOrders(): Promise<OrdersResponse>;
+  getPurchaseOrders(): Promise<PurchaseOrdersResponse>;
+  createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder>;
+  receivePurchaseOrder(id: string): Promise<PurchaseOrder>;
   getDeliveries(): Promise<DeliveriesResponse>;
   getReports(): Promise<ReportsResponse>;
   getInventory(): Promise<InventoryResponse>;
+  listBranches(): Promise<BranchListResponse>;
+  updateBranch(id: string, input: BranchUpdateRequest): Promise<import("../types.js").Branch>;
   getDistributionDraft(): Promise<import("../types.js").DistributionDraftResponse>;
   createDistribution(input: DistributionCreateRequest): Promise<DistributionCreateResponse>;
   createInventoryItem(input: InventoryCreateRequest): Promise<import("../types.js").InventoryItem>;
+  updateInventoryItem(id: string, input: InventoryUpdateRequest): Promise<import("../types.js").InventoryItem>;
+  deleteInventoryItem(id: string): Promise<void>;
   createOutlet(input: SetupOutletRequest): Promise<SetupOutletResponse>;
   createVehicle(input: SetupVehicleRequest): Promise<SetupVehicleResponse>;
   createProduct(input: SetupProductRequest): Promise<SetupProductResponse>;

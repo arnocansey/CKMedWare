@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   DeliveryStopStatus,
   DistributionStatus,
+  PurchaseOrderStatus,
   UserRole,
   type Prisma,
   type ProductKind as PrismaProductKind,
@@ -11,6 +12,9 @@ import {
 import type { DataStore } from "./data-store.js";
 import { getPrismaClient } from "../lib/prisma.js";
 import type {
+  Branch,
+  BranchListResponse,
+  BranchUpdateRequest,
   DashboardResponse,
   DeliveriesResponse,
   DeliveryStop,
@@ -19,10 +23,14 @@ import type {
   DistributionDraftResponse,
   ExpiryItem,
   InventoryCreateRequest,
+  InventoryUpdateRequest,
   InventoryItem,
   InventoryResponse,
   LoginResponse,
   OrdersResponse,
+  PurchaseOrder,
+  PurchaseOrderCreateRequest,
+  PurchaseOrdersResponse,
   ProductKind,
   ReportsResponse,
   SetupOutletRequest,
@@ -149,6 +157,11 @@ function percentageChange(current: number, previous: number) {
 function createOrderNumber() {
   const segment = randomUUID().slice(0, 6).toUpperCase();
   return `ORD-${segment}`;
+}
+
+function createPurchaseOrderNumber() {
+  const segment = randomUUID().slice(0, 6).toUpperCase();
+  return `PO-${segment}`;
 }
 
 function createBatchNumber() {
@@ -558,6 +571,219 @@ export class PrismaStore implements DataStore {
     };
   }
 
+  async getPurchaseOrders(): Promise<PurchaseOrdersResponse> {
+    await this.ensureBootstrapUser();
+
+    const orders = await this.prisma.purchaseOrder.findMany({
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    return {
+      filters: ["All", "Pending", "Received"],
+      orders: orders.map((order): PurchaseOrder => {
+        const totalValue = order.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+
+        return {
+          id: order.id,
+          orderNumber: order.orderNumber,
+          supplier: order.supplierName,
+          status: order.status === PurchaseOrderStatus.received ? "received" : "pending",
+          items: order.items.length,
+          units: order.items.reduce((sum, item) => sum + item.quantity, 0),
+          total: formatCurrency(totalValue),
+          totalValue,
+          date: formatDateOnly(order.createdAt),
+          lineItems: order.items.map((item) => ({
+            drugName: item.drugName,
+            quantity: item.quantity,
+            expiryDate: formatDateOnly(item.expiresAt),
+            costPrice: item.costPrice,
+            batchNumber: item.batchNumber,
+          })),
+        };
+      }),
+    };
+  }
+
+  async createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder> {
+    await this.ensureBootstrapUser();
+
+    const supplierName = input.supplierName.trim();
+
+    if (!supplierName) {
+      throw new Error("Supplier name is required.");
+    }
+
+    if (!Array.isArray(input.items) || input.items.length === 0) {
+      throw new Error("Add at least one order item.");
+    }
+
+    const items = input.items.map((item) => {
+      const drugName = item.drugName.trim();
+      const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0));
+      const expiresAt = parseExpiryDate(item.expiryDate);
+      const costPrice = Math.max(0, Math.round(Number(item.costPrice) || 0));
+
+      if (!drugName || quantity <= 0 || costPrice <= 0) {
+        throw new Error("Each order item must include drug name, quantity, expiry date, and cost price.");
+      }
+
+      return {
+        drugName,
+        quantity,
+        expiresAt,
+        costPrice,
+      };
+    });
+
+    const order = await this.prisma.purchaseOrder.create({
+      data: {
+        orderNumber: createPurchaseOrderNumber(),
+        supplierName,
+        status: PurchaseOrderStatus.pending,
+        items: {
+          create: items,
+        },
+      },
+      include: { items: true },
+    });
+
+    const totalValue = order.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      supplier: order.supplierName,
+      status: "pending",
+      items: order.items.length,
+      units: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      total: formatCurrency(totalValue),
+      totalValue,
+      date: formatDateOnly(order.createdAt),
+      lineItems: order.items.map((item) => ({
+        drugName: item.drugName,
+        quantity: item.quantity,
+        expiryDate: formatDateOnly(item.expiresAt),
+        costPrice: item.costPrice,
+        batchNumber: item.batchNumber,
+      })),
+    };
+  }
+
+  async receivePurchaseOrder(id: string): Promise<PurchaseOrder> {
+    await this.ensureBootstrapUser();
+
+    const existing = await this.prisma.purchaseOrder.findFirst({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!existing) {
+      throw new Error("Order not found.");
+    }
+
+    if (existing.status === PurchaseOrderStatus.received) {
+      const totalValue = existing.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+
+      return {
+        id: existing.id,
+        orderNumber: existing.orderNumber,
+        supplier: existing.supplierName,
+        status: "received",
+        items: existing.items.length,
+        units: existing.items.reduce((sum, item) => sum + item.quantity, 0),
+        total: formatCurrency(totalValue),
+        totalValue,
+        date: formatDateOnly(existing.createdAt),
+        lineItems: existing.items.map((item) => ({
+          drugName: item.drugName,
+          quantity: item.quantity,
+          expiryDate: formatDateOnly(item.expiresAt),
+          costPrice: item.costPrice,
+          batchNumber: item.batchNumber,
+        })),
+      };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const outlet = await tx.outlet.upsert({
+        where: { name: "Main Pharmacy Store" },
+        update: { area: "Inventory", isActive: true },
+        create: { name: "Main Pharmacy Store", area: "Inventory" },
+      });
+
+      for (const item of existing.items) {
+        const product = await tx.product.upsert({
+          where: { name: item.drugName },
+          update: {
+            price: item.costPrice,
+            isActive: true,
+          },
+          create: {
+            name: item.drugName,
+            category: "Medicine",
+            kind: normalizeProductKind("pill"),
+            price: item.costPrice,
+            color: colorForProduct("pill"),
+          },
+        });
+
+        const batchNumber = createBatchNumber();
+
+        await tx.stockBatch.create({
+          data: {
+            batchNumber,
+            productId: product.id,
+            outletId: outlet.id,
+            expiresAt: item.expiresAt,
+            unitsRemaining: item.quantity,
+          },
+        });
+
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: { batchNumber },
+        });
+      }
+
+      await tx.purchaseOrder.update({
+        where: { id: existing.id },
+        data: {
+          status: PurchaseOrderStatus.received,
+          receivedAt: new Date(),
+        },
+      });
+    });
+
+    const updated = await this.prisma.purchaseOrder.findFirstOrThrow({
+      where: { id },
+      include: { items: true },
+    });
+
+    const totalValue = updated.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+
+    return {
+      id: updated.id,
+      orderNumber: updated.orderNumber,
+      supplier: updated.supplierName,
+      status: "received",
+      items: updated.items.length,
+      units: updated.items.reduce((sum, item) => sum + item.quantity, 0),
+      total: formatCurrency(totalValue),
+      totalValue,
+      date: formatDateOnly(updated.createdAt),
+      lineItems: updated.items.map((item) => ({
+        drugName: item.drugName,
+        quantity: item.quantity,
+        expiryDate: formatDateOnly(item.expiresAt),
+        costPrice: item.costPrice,
+        batchNumber: item.batchNumber,
+      })),
+    };
+  }
+
   private mapDeliveryStop(stop: DeliveryStopWithRelations): DeliveryStop {
     const units = sumUnits(stop.distribution.items);
     let eta = `ETA ${formatTime(stop.scheduledTime)}`;
@@ -776,6 +1002,71 @@ export class PrismaStore implements DataStore {
     };
   }
 
+  async listBranches(): Promise<BranchListResponse> {
+    await this.ensureBootstrapUser();
+
+    const outlets = await this.prisma.outlet.findMany({
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    });
+
+    return {
+      branches: outlets.map((outlet): Branch => ({
+        id: outlet.id,
+        name: outlet.name,
+        area: outlet.area,
+        isActive: outlet.isActive,
+      })),
+    };
+  }
+
+  async updateBranch(id: string, input: BranchUpdateRequest): Promise<Branch> {
+    await this.ensureBootstrapUser();
+
+    const existing = await this.prisma.outlet.findFirst({ where: { id } });
+
+    if (!existing) {
+      throw new Error("Branch not found.");
+    }
+
+    const name = input.name?.trim();
+    const area = input.area?.trim();
+
+    if (name !== undefined && !name) {
+      throw new Error("Branch name is required.");
+    }
+
+    if (area !== undefined && !area) {
+      throw new Error("Branch area is required.");
+    }
+
+    if (name && name.toLowerCase() !== existing.name.toLowerCase()) {
+      const conflict = await this.prisma.outlet.findFirst({
+        where: { name, NOT: { id: existing.id } },
+        select: { id: true },
+      });
+
+      if (conflict) {
+        throw new Error("Another branch already uses that name.");
+      }
+    }
+
+    const outlet = await this.prisma.outlet.update({
+      where: { id },
+      data: {
+        name: name ?? undefined,
+        area: area ?? undefined,
+        isActive: input.isActive ?? undefined,
+      },
+    });
+
+    return {
+      id: outlet.id,
+      name: outlet.name,
+      area: outlet.area,
+      isActive: outlet.isActive,
+    };
+  }
+
   async createInventoryItem(input: InventoryCreateRequest): Promise<InventoryItem> {
     await this.ensureBootstrapUser();
 
@@ -839,6 +1130,70 @@ export class PrismaStore implements DataStore {
       costPrice: product.price,
       batchNumber: batch.batchNumber,
     };
+  }
+
+  async updateInventoryItem(id: string, input: InventoryUpdateRequest): Promise<InventoryItem> {
+    await this.ensureBootstrapUser();
+
+    const batch = await this.prisma.stockBatch.findFirst({
+      where: { id },
+      include: { product: true },
+    });
+
+    if (!batch) {
+      throw new Error("Inventory item not found.");
+    }
+
+    const quantity =
+      input.quantity === undefined ? undefined : Math.max(0, Math.floor(Number(input.quantity) || 0));
+    const expiryDate = input.expiryDate === undefined ? undefined : parseExpiryDate(input.expiryDate);
+    const costPrice =
+      input.costPrice === undefined ? undefined : Math.max(0, Math.round(Number(input.costPrice) || 0));
+
+    if (quantity !== undefined && quantity <= 0) {
+      throw new Error("Quantity must be greater than 0.");
+    }
+
+    if (costPrice !== undefined && costPrice <= 0) {
+      throw new Error("Cost price must be greater than 0.");
+    }
+
+    const [updatedBatch, updatedProduct] = await this.prisma.$transaction([
+      this.prisma.stockBatch.update({
+        where: { id: batch.id },
+        data: {
+          unitsRemaining: quantity ?? undefined,
+          expiresAt: expiryDate ?? undefined,
+        },
+      }),
+      costPrice !== undefined
+        ? this.prisma.product.update({
+            where: { id: batch.productId },
+            data: { price: costPrice },
+          })
+        : this.prisma.product.findFirstOrThrow({ where: { id: batch.productId } }),
+    ]);
+
+    return {
+      id: updatedBatch.id,
+      drugName: updatedProduct.name,
+      quantity: updatedBatch.unitsRemaining,
+      expiryDate: formatDateOnly(updatedBatch.expiresAt),
+      costPrice: updatedProduct.price,
+      batchNumber: updatedBatch.batchNumber,
+    };
+  }
+
+  async deleteInventoryItem(id: string): Promise<void> {
+    await this.ensureBootstrapUser();
+
+    const existing = await this.prisma.stockBatch.findFirst({ where: { id } });
+
+    if (!existing) {
+      throw new Error("Inventory item not found.");
+    }
+
+    await this.prisma.stockBatch.delete({ where: { id } });
   }
 
   async getDistributionDraft(): Promise<DistributionDraftResponse> {

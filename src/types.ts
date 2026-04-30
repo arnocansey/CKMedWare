@@ -64,6 +64,44 @@ export type OrdersResponse = {
   orders: Order[];
 };
 
+export type PurchaseOrderStatus = "pending" | "received";
+
+export type PurchaseOrderLineItem = {
+  drugName: string;
+  quantity: number;
+  expiryDate: string;
+  costPrice: number;
+  batchNumber?: string | null;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  orderNumber: string;
+  supplier: string;
+  status: PurchaseOrderStatus;
+  items: number;
+  units: number;
+  total: string;
+  totalValue: number;
+  date: string;
+  lineItems: PurchaseOrderLineItem[];
+};
+
+export type PurchaseOrdersResponse = {
+  filters: string[];
+  orders: PurchaseOrder[];
+};
+
+export type PurchaseOrderCreateRequest = {
+  supplierName: string;
+  items: Array<{
+    drugName: string;
+    quantity: number;
+    expiryDate: string;
+    costPrice: number;
+  }>;
+};
+
 export type DeliveryStopStatus = "done" | "active" | "next";
 
 export type DeliveryStop = {
@@ -129,6 +167,12 @@ export type InventoryCreateRequest = {
   costPrice: number;
   category?: string;
   kind?: ProductKind;
+};
+
+export type InventoryUpdateRequest = {
+  quantity?: number;
+  expiryDate?: string;
+  costPrice?: number;
 };
 
 export type DistributionProduct = {
@@ -206,6 +250,20 @@ export type SetupOutletResponse = {
   id: string;
   name: string;
   area: string;
+};
+
+export type Branch = SetupOutletResponse & {
+  isActive: boolean;
+};
+
+export type BranchListResponse = {
+  branches: Branch[];
+};
+
+export type BranchUpdateRequest = {
+  name?: string;
+  area?: string;
+  isActive?: boolean;
 };
 
 export type SetupVehicleRequest = {

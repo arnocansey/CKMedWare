@@ -622,10 +622,6 @@ export type EnumDeliveryStopStatusFieldUpdateOperationsInput = {
   set?: $Enums.DeliveryStopStatus
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type DeliveryStopCreateWithoutOutletInput = {
   id?: string
   routeCode: string

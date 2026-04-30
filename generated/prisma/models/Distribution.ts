@@ -608,10 +608,6 @@ export type EnumDistributionStatusFieldUpdateOperationsInput = {
   set?: $Enums.DistributionStatus
 }
 
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
 export type DistributionCreateNestedOneWithoutItemsInput = {
   create?: Prisma.XOR<Prisma.DistributionCreateWithoutItemsInput, Prisma.DistributionUncheckedCreateWithoutItemsInput>
   connectOrCreate?: Prisma.DistributionCreateOrConnectWithoutItemsInput

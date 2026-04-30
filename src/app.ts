@@ -3,9 +3,12 @@ import express from "express";
 
 import { store } from "./data/store.js";
 import type {
+  BranchUpdateRequest,
   DistributionCreateRequest,
   InventoryCreateRequest,
+  InventoryUpdateRequest,
   LoginRequest,
+  PurchaseOrderCreateRequest,
   SetupOutletRequest,
   SetupProductRequest,
   SetupVehicleRequest,
@@ -100,6 +103,36 @@ export function createApp() {
     res.json(await store.getOrders());
   });
 
+  app.get("/api/purchase-orders", async (_req, res) => {
+    res.json(await store.getPurchaseOrders());
+  });
+
+  app.post("/api/purchase-orders", async (req, res, next) => {
+    const body = req.body as Partial<PurchaseOrderCreateRequest> | undefined;
+
+    try {
+      const response = await store.createPurchaseOrder({
+        supplierName: body?.supplierName ?? "",
+        items: body?.items ?? [],
+      });
+
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/purchase-orders/:id/receive", async (req, res, next) => {
+    const id = req.params.id;
+
+    try {
+      const response = await store.receivePurchaseOrder(id);
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/deliveries", async (_req, res) => {
     res.json(await store.getDeliveries());
   });
@@ -110,6 +143,42 @@ export function createApp() {
 
   app.get("/api/inventory", async (_req, res) => {
     res.json(await store.getInventory());
+  });
+
+  app.get("/api/branches", async (_req, res) => {
+    res.json(await store.listBranches());
+  });
+
+  app.post("/api/branches", async (req, res, next) => {
+    const body = req.body as Partial<SetupOutletRequest> | undefined;
+
+    try {
+      const response = await store.createOutlet({
+        name: body?.name ?? "",
+        area: body?.area ?? "",
+      });
+
+      res.status(201).json({ ...response, isActive: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/branches/:id", async (req, res, next) => {
+    const body = req.body as Partial<BranchUpdateRequest> | undefined;
+    const id = req.params.id;
+
+    try {
+      const response = await store.updateBranch(id, {
+        name: body?.name,
+        area: body?.area,
+        isActive: body?.isActive,
+      });
+
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/inventory", async (req, res, next) => {
@@ -126,6 +195,34 @@ export function createApp() {
       });
 
       res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/inventory/:id", async (req, res, next) => {
+    const body = req.body as Partial<InventoryUpdateRequest> | undefined;
+    const id = req.params.id;
+
+    try {
+      const response = await store.updateInventoryItem(id, {
+        quantity: body?.quantity,
+        expiryDate: body?.expiryDate,
+        costPrice: body?.costPrice,
+      });
+
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/inventory/:id", async (req, res, next) => {
+    const id = req.params.id;
+
+    try {
+      await store.deleteInventoryItem(id);
+      res.status(204).send();
     } catch (error) {
       next(error);
     }
