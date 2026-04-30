@@ -30,12 +30,12 @@ export interface DataStore {
   getUserForToken(token: string): Promise<User | null>;
   getDashboard(user: User): Promise<DashboardResponse>;
   getOrders(): Promise<OrdersResponse>;
-  getPurchaseOrders(): Promise<PurchaseOrdersResponse>;
+  getPurchaseOrders(options?: { q?: string; page?: number; limit?: number }): Promise<PurchaseOrdersResponse>;
   createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder>;
   receivePurchaseOrder(id: string): Promise<PurchaseOrder>;
   getDeliveries(): Promise<DeliveriesResponse>;
   getReports(): Promise<ReportsResponse>;
-  getInventory(): Promise<InventoryResponse>;
+  getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse>;
   listBranches(): Promise<BranchListResponse>;
   updateBranch(id: string, input: BranchUpdateRequest): Promise<import("../types.js").Branch>;
   getDistributionDraft(): Promise<import("../types.js").DistributionDraftResponse>;

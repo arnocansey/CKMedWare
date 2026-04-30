@@ -571,13 +571,27 @@ export class PrismaStore implements DataStore {
     };
   }
 
-  async getPurchaseOrders(): Promise<PurchaseOrdersResponse> {
+  async getPurchaseOrders(options?: { q?: string; page?: number; limit?: number }): Promise<PurchaseOrdersResponse> {
     await this.ensureBootstrapUser();
+    const q = options?.q?.trim();
+    const page = Math.max(1, Math.floor(options?.page ?? 1));
+    const limit = Math.min(100, Math.max(1, Math.floor(options?.limit ?? 50)));
+    const skip = (page - 1) * limit;
 
     const orders = await this.prisma.purchaseOrder.findMany({
+      where: q
+        ? {
+            OR: [
+              { orderNumber: { contains: q, mode: "insensitive" } },
+              { supplierName: { contains: q, mode: "insensitive" } },
+              { items: { some: { drugName: { contains: q, mode: "insensitive" } } } },
+            ],
+          }
+        : undefined,
       include: { items: true },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      skip,
+      take: limit,
     });
 
     return {
@@ -595,6 +609,8 @@ export class PrismaStore implements DataStore {
           total: formatCurrency(totalValue),
           totalValue,
           date: formatDateOnly(order.createdAt),
+          createdAt: order.createdAt.toISOString(),
+          updatedAt: order.updatedAt.toISOString(),
           lineItems: order.items.map((item) => ({
             drugName: item.drugName,
             quantity: item.quantity,
@@ -662,6 +678,8 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(order.createdAt),
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
       lineItems: order.items.map((item) => ({
         drugName: item.drugName,
         quantity: item.quantity,
@@ -697,6 +715,8 @@ export class PrismaStore implements DataStore {
         total: formatCurrency(totalValue),
         totalValue,
         date: formatDateOnly(existing.createdAt),
+        createdAt: existing.createdAt.toISOString(),
+        updatedAt: existing.updatedAt.toISOString(),
         lineItems: existing.items.map((item) => ({
           drugName: item.drugName,
           quantity: item.quantity,
@@ -774,6 +794,8 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(updated.createdAt),
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
       lineItems: updated.items.map((item) => ({
         drugName: item.drugName,
         quantity: item.quantity,
@@ -975,19 +997,33 @@ export class PrismaStore implements DataStore {
     };
   }
 
-  async getInventory(): Promise<InventoryResponse> {
+  async getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse> {
     await this.ensureBootstrapUser();
+    const q = options?.q?.trim();
+    const page = Math.max(1, Math.floor(options?.page ?? 1));
+    const limit = Math.min(200, Math.max(1, Math.floor(options?.limit ?? 200)));
+    const skip = (page - 1) * limit;
 
     const batches = await this.prisma.stockBatch.findMany({
       where: {
         unitsRemaining: {
           gt: 0,
         },
+        ...(q
+          ? {
+              OR: [
+                { batchNumber: { contains: q, mode: "insensitive" } },
+                { product: { name: { contains: q, mode: "insensitive" } } },
+              ],
+            }
+          : {}),
       },
       include: {
         product: true,
       },
       orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
+      skip,
+      take: limit,
     });
 
     return {
@@ -998,6 +1034,8 @@ export class PrismaStore implements DataStore {
         expiryDate: formatDateOnly(batch.expiresAt),
         costPrice: batch.product.price,
         batchNumber: batch.batchNumber,
+        createdAt: batch.createdAt.toISOString(),
+        updatedAt: batch.updatedAt.toISOString(),
       })),
     };
   }
@@ -1129,6 +1167,8 @@ export class PrismaStore implements DataStore {
       expiryDate: formatDateOnly(batch.expiresAt),
       costPrice: product.price,
       batchNumber: batch.batchNumber,
+      createdAt: batch.createdAt.toISOString(),
+      updatedAt: batch.updatedAt.toISOString(),
     };
   }
 
@@ -1181,6 +1221,8 @@ export class PrismaStore implements DataStore {
       expiryDate: formatDateOnly(updatedBatch.expiresAt),
       costPrice: updatedProduct.price,
       batchNumber: updatedBatch.batchNumber,
+      createdAt: updatedBatch.createdAt.toISOString(),
+      updatedAt: updatedBatch.updatedAt.toISOString(),
     };
   }
 

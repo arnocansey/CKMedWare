@@ -84,6 +84,8 @@ export type PurchaseOrder = {
   total: string;
   totalValue: number;
   date: string;
+  createdAt: string;
+  updatedAt: string;
   lineItems: PurchaseOrderLineItem[];
 };
 
@@ -154,6 +156,8 @@ export type InventoryItem = {
   expiryDate: string;
   costPrice: number;
   batchNumber: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type InventoryResponse = {

@@ -36,6 +36,30 @@ function getRouteParam(params: express.Request["params"], key: string) {
   return value ?? "";
 }
 
+function getQueryString(value: unknown) {
+  if (Array.isArray(value)) {
+    return String(value[0] ?? "");
+  }
+  return typeof value === "string" ? value : "";
+}
+
+function getQueryNumber(value: unknown, fallback: number) {
+  const raw = getQueryString(value);
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+}
+
+function csvEscape(value: unknown) {
+  const content = String(value ?? "");
+  if (/[",\n]/.test(content)) {
+    return `"${content.replace(/"/g, '""')}"`;
+  }
+  return content;
+}
+
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.path === "/health" || req.path === "/api/auth/login" || req.path === "/api/auth/signup") {
     next();
@@ -122,8 +146,14 @@ export function createApp() {
     res.json(await store.getOrders());
   }));
 
-  app.get("/api/purchase-orders", asyncHandler(async (_req, res) => {
-    res.json(await store.getPurchaseOrders());
+  app.get("/api/purchase-orders", asyncHandler(async (req, res) => {
+    res.json(
+      await store.getPurchaseOrders({
+        q: getQueryString(req.query.q),
+        page: getQueryNumber(req.query.page, 1),
+        limit: getQueryNumber(req.query.limit, 50),
+      }),
+    );
   }));
 
   app.post("/api/purchase-orders", asyncHandler(async (req, res) => {
@@ -156,8 +186,55 @@ export function createApp() {
     res.json(await store.getReports());
   }));
 
-  app.get("/api/inventory", asyncHandler(async (_req, res) => {
-    res.json(await store.getInventory());
+  app.get("/api/inventory", asyncHandler(async (req, res) => {
+    res.json(
+      await store.getInventory({
+        q: getQueryString(req.query.q),
+        page: getQueryNumber(req.query.page, 1),
+        limit: getQueryNumber(req.query.limit, 200),
+      }),
+    );
+  }));
+
+  app.get("/api/exports/inventory.csv", asyncHandler(async (_req, res) => {
+    const inventory = await store.getInventory({ page: 1, limit: 1000 });
+    const rows = [
+      ["Drug Name", "Batch Number", "Quantity", "Expiry Date", "Cost Price", "Created At", "Updated At"],
+      ...inventory.items.map((item) => [
+        item.drugName,
+        item.batchNumber,
+        item.quantity,
+        item.expiryDate,
+        item.costPrice,
+        item.createdAt,
+        item.updatedAt,
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", 'attachment; filename="inventory-export.csv"');
+    res.send(csv);
+  }));
+
+  app.get("/api/exports/purchase-orders.csv", asyncHandler(async (_req, res) => {
+    const orders = await store.getPurchaseOrders({ page: 1, limit: 1000 });
+    const rows = [
+      ["Order Number", "Supplier", "Status", "Items", "Units", "Total", "Created At", "Updated At"],
+      ...orders.orders.map((order) => [
+        order.orderNumber,
+        order.supplier,
+        order.status,
+        order.items,
+        order.units,
+        order.totalValue,
+        order.createdAt,
+        order.updatedAt,
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", 'attachment; filename="purchase-orders-export.csv"');
+    res.send(csv);
   }));
 
   app.get("/api/branches", asyncHandler(async (_req, res) => {

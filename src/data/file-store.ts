@@ -284,7 +284,7 @@ export class FileStore implements DataStore {
     };
   }
 
-  async getPurchaseOrders(): Promise<PurchaseOrdersResponse> {
+  async getPurchaseOrders(_options?: { q?: string; page?: number; limit?: number }): Promise<PurchaseOrdersResponse> {
     throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
   }
 
@@ -304,7 +304,7 @@ export class FileStore implements DataStore {
     return this.readDatabase().reports;
   }
 
-  async getInventory(): Promise<InventoryResponse> {
+  async getInventory(_options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse> {
     const database = this.readDatabase();
     const storedInventory = database.inventory?.items ?? [];
 
@@ -403,6 +403,8 @@ export class FileStore implements DataStore {
       expiryDate: formatDateOnly(expiryDate),
       costPrice,
       batchNumber: createBatchNumber(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
     };
 
     database.inventory = {
@@ -442,6 +444,7 @@ export class FileStore implements DataStore {
       quantity,
       expiryDate,
       costPrice,
+      updatedAt: nowIso(),
     };
 
     items[index] = updated;
