@@ -42,6 +42,7 @@ export function createSeedDatabase(): PersistedDatabase {
         ashongman: 0,
         nima: 0,
       },
+      areaBreakdown: [],
       expiryWatchlist: [],
     },
     orders: {

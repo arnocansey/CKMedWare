@@ -527,27 +527,29 @@ export class PrismaStore implements DataStore {
       }),
     ]);
 
-    const stats = distributions.reduce(
-      (
-        accumulator: { total: number; ashongman: number; nima: number },
-        distribution: DashboardDistribution,
-      ) => {
-        const units = sumUnits(distribution.items);
-        const areaLabel = `${distribution.outlet.area} ${distribution.outlet.name}`;
-        accumulator.total += units;
+    const areaMap = new Map<string, number>();
+    let totalUnits = 0;
+    for (const distribution of distributions) {
+      const units = sumUnits(distribution.items);
+      totalUnits += units;
+      const areaKey = distribution.outlet.area?.trim() || distribution.outlet.name.trim() || "Unknown";
+      areaMap.set(areaKey, (areaMap.get(areaKey) ?? 0) + units);
+    }
 
-        if (isAreaMatch(areaLabel, "ashongman")) {
-          accumulator.ashongman += units;
-        }
+    const areaBreakdown = Array.from(areaMap.entries())
+      .map(([area, units]) => ({ area, units }))
+      .sort((left, right) => right.units - left.units);
 
-        if (isAreaMatch(areaLabel, "nima")) {
-          accumulator.nima += units;
-        }
+    const ashongmanUnits =
+      areaBreakdown.find((bucket) => isAreaMatch(bucket.area, "ashongman"))?.units ?? 0;
+    const nimaUnits =
+      areaBreakdown.find((bucket) => isAreaMatch(bucket.area, "nima"))?.units ?? 0;
 
-        return accumulator;
-      },
-      { total: 0, ashongman: 0, nima: 0 },
-    );
+    const stats = {
+      total: totalUnits,
+      ashongman: ashongmanUnits,
+      nima: nimaUnits,
+    };
 
     return {
       dayLabel: formatLongDate(today),
@@ -555,6 +557,7 @@ export class PrismaStore implements DataStore {
         stats.total > 0 ? "Live distribution snapshot" : "No distributions recorded yet",
       user,
       stats,
+      areaBreakdown,
       expiryWatchlist: expiryBatches.map((batch: typeof expiryBatches[number]) => {
         const days = Math.max(
           0,

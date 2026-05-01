@@ -17,6 +17,11 @@ export type DashboardStats = {
   nima: number;
 };
 
+export type DashboardAreaBucket = {
+  area: string;
+  units: number;
+};
+
 export type ExpiryItem = {
   name: string;
   batch: string;
@@ -30,6 +35,7 @@ export type DashboardResponse = {
   snapshotLabel: string;
   user: User;
   stats: DashboardStats;
+  areaBreakdown: DashboardAreaBucket[];
   expiryWatchlist: ExpiryItem[];
 };
 

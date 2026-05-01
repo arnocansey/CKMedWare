@@ -310,6 +310,7 @@ export class FileStore implements DataStore {
 
     return {
       ...database.dashboard,
+      areaBreakdown: database.dashboard.areaBreakdown ?? [],
       user,
     };
   }
