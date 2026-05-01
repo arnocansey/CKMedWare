@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { backendEvents, type BackendEvent } from "./lib/events.js";
 
 import { store } from "./data/store.js";
 import type {
@@ -105,6 +106,7 @@ function authMiddleware(req: express.Request, res: express.Response, next: expre
       }
 
       res.locals.user = user;
+      res.locals.authToken = token;
       next();
     })
     .catch((error: unknown) => {
@@ -182,6 +184,65 @@ export function createApp() {
     res.status(201).json(response);
   }));
 
+  app.post("/api/auth/refresh", asyncHandler(async (_req, res) => {
+    const token = (res.locals.authToken as string | undefined) ?? "";
+    if (!token) {
+      res.status(401).json({ message: "Missing bearer token" });
+      return;
+    }
+
+    const response = await store.refreshSession(token);
+
+    if (!response) {
+      res.status(401).json({ message: "Session expired or invalid" });
+      return;
+    }
+
+    res.json(response);
+  }));
+
+  app.post("/api/auth/logout", asyncHandler(async (_req, res) => {
+    const token = (res.locals.authToken as string | undefined) ?? "";
+    if (!token) {
+      res.status(401).json({ message: "Missing bearer token" });
+      return;
+    }
+
+    await store.revokeSession(token);
+    res.status(204).send();
+  }));
+
+  app.get("/api/events", asyncHandler(async (_req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (typeof res.flushHeaders === "function") {
+      res.flushHeaders();
+    }
+
+    const send = (event: BackendEvent) => {
+      res.write(`event: message\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    send({
+      type: "connection.ready",
+      at: new Date().toISOString(),
+    });
+
+    const unsubscribe = backendEvents.subscribe(send);
+    const heartbeat = setInterval(() => {
+      res.write(`: keep-alive\n\n`);
+    }, 20000);
+
+    res.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  }));
+
   app.get("/api/dashboard", asyncHandler(async (_req, res) => {
     const user = res.locals.user as User;
     res.json(await store.getDashboard(user));
@@ -228,6 +289,11 @@ export function createApp() {
       items: body?.items ?? [],
     });
 
+    backendEvents.publish("purchase_order.created", {
+      id: response.id,
+      orderNumber: response.orderNumber,
+      status: response.status,
+    });
     res.status(201).json(response);
   }));
 
@@ -239,6 +305,11 @@ export function createApp() {
     }
 
     const response = await store.receivePurchaseOrder(id);
+    backendEvents.publish("purchase_order.received", {
+      id: response.id,
+      orderNumber: response.orderNumber,
+      status: response.status,
+    });
     res.json(response);
   }));
 
@@ -313,6 +384,10 @@ export function createApp() {
       area: body?.area ?? "",
     });
 
+    backendEvents.publish("branch.created", {
+      id: response.id,
+      name: response.name,
+    });
     res.status(201).json({ ...response, isActive: true });
   }));
 
@@ -330,6 +405,11 @@ export function createApp() {
       isActive: body?.isActive,
     });
 
+    backendEvents.publish("branch.updated", {
+      id: response.id,
+      name: response.name,
+      isActive: response.isActive,
+    });
     res.json(response);
   }));
 
@@ -357,6 +437,11 @@ export function createApp() {
       kind: body?.kind,
     });
 
+    backendEvents.publish("inventory.created", {
+      id: response.id,
+      drugName: response.drugName,
+      quantity: response.quantity,
+    });
     res.status(201).json(response);
   }));
 
@@ -397,6 +482,11 @@ export function createApp() {
       costPrice: body?.costPrice,
     });
 
+    backendEvents.publish("inventory.updated", {
+      id: response.id,
+      drugName: response.drugName,
+      quantity: response.quantity,
+    });
     res.json(response);
   }));
 
@@ -408,6 +498,7 @@ export function createApp() {
     }
 
     await store.deleteInventoryItem(id);
+    backendEvents.publish("inventory.deleted", { id });
     res.status(204).send();
   }));
 
@@ -440,6 +531,11 @@ export function createApp() {
       products: body?.products ?? [],
     });
 
+    backendEvents.publish("distribution.created", {
+      distributionId: response.distributionId,
+      outletName: response.outletName,
+      units: response.units,
+    });
     res.status(201).json(response);
   }));
 
@@ -456,12 +552,26 @@ export function createApp() {
 
   app.post("/api/setup/vehicles", asyncHandler(async (req, res) => {
     const body = req.body as Partial<SetupVehicleRequest> | undefined;
+    const name = body?.name?.trim();
+    const registrationNumber = body?.registrationNumber?.trim().toUpperCase();
+    const driverName = body?.driverName?.trim();
+    const defaultDeliveryFee = Number(body?.defaultDeliveryFee ?? 0);
+
+    if (!name || !registrationNumber || !driverName) {
+      res.status(400).json({ message: "Vehicle name, registration number, and driver name are required." });
+      return;
+    }
+
+    if (!Number.isFinite(defaultDeliveryFee) || defaultDeliveryFee < 0) {
+      res.status(400).json({ message: "Delivery fee must be a non-negative number." });
+      return;
+    }
 
     const response = await store.createVehicle({
-      name: body?.name ?? "",
-      registrationNumber: body?.registrationNumber ?? "",
-      driverName: body?.driverName ?? "",
-      defaultDeliveryFee: Number(body?.defaultDeliveryFee ?? 0),
+      name,
+      registrationNumber,
+      driverName,
+      defaultDeliveryFee,
     });
 
     res.status(201).json(response);

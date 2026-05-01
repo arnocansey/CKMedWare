@@ -9,6 +9,7 @@ import type {
   BranchListResponse,
   BranchUpdateRequest,
   DashboardResponse,
+  DeliveryStop,
   DeliveriesResponse,
   DistributionCreateRequest,
   DistributionCreateResponse,
@@ -232,6 +233,46 @@ export class FileStore implements DataStore {
     return result;
   }
 
+  async refreshSession(token: string): Promise<LoginResponse | null> {
+    const database = this.readDatabase();
+    const session = database.sessions.find((entry) => entry.token === token);
+
+    if (!session) {
+      return null;
+    }
+
+    const user = database.users.find((entry) => entry.id === session.userId);
+    if (!user) {
+      return null;
+    }
+
+    const nextToken = createToken();
+    database.sessions = database.sessions
+      .filter((entry) => entry.token !== token)
+      .concat({
+        token: nextToken,
+        userId: user.id,
+        createdAt: nowIso(),
+      });
+    this.writeDatabase(database);
+
+    return {
+      token: nextToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async revokeSession(token: string): Promise<void> {
+    const database = this.readDatabase();
+    database.sessions = database.sessions.filter((entry) => entry.token !== token);
+    this.writeDatabase(database);
+  }
+
   async getUserForToken(token: string) {
     const database = this.readDatabase();
     const now = Date.now();
@@ -316,7 +357,44 @@ export class FileStore implements DataStore {
   }
 
   async getDeliveries(): Promise<DeliveriesResponse> {
-    return this.readDatabase().deliveries;
+    const database = this.readDatabase();
+    const records = database.submittedDistributions ?? [];
+
+    if (records.length === 0) {
+      return {
+        routeId: database.deliveries.routeId,
+        totalUnits: 0,
+        activeStop: null,
+        stops: [],
+      };
+    }
+
+    const stops: DeliveryStop[] = records
+      .slice(0, 50)
+      .map((record, index) => {
+        const date = new Date(record.dateValue ? `${record.dateValue}T09:00:00` : record.createdAt);
+        const time = Number.isNaN(date.getTime())
+          ? "--:--"
+          : date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        const status: DeliveryStop["status"] = index === 0 ? "active" : "next";
+
+        return {
+          id: index + 1,
+          time,
+          outlet: record.outletName,
+          area: "Distribution area",
+          units: record.units,
+          status,
+          eta: record.eta || "Scheduled",
+        };
+      });
+
+    return {
+      routeId: records[0]?.vehicleName ?? database.deliveries.routeId,
+      totalUnits: stops.reduce((sum, stop) => sum + stop.units, 0),
+      activeStop: stops[0] ?? null,
+      stops,
+    };
   }
 
   async getReports(): Promise<ReportsResponse> {

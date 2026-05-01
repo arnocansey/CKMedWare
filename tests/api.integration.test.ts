@@ -75,6 +75,41 @@ describe("CKMedWare API integration", () => {
     ).toBe(true);
   });
 
+  it("refreshes and revokes token sessions", async () => {
+    const { app, token } = await createAuthenticatedClient();
+
+    const refreshResponse = await request(app)
+      .post("/api/auth/refresh")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshResponse.body.token).toBeTruthy();
+    expect(refreshResponse.body.token).not.toBe(token);
+
+    const oldTokenAccess = await request(app)
+      .get("/api/inventory")
+      .set("Authorization", `Bearer ${token}`);
+    expect(oldTokenAccess.status).toBe(401);
+
+    const newToken = refreshResponse.body.token as string;
+    const newTokenAccess = await request(app)
+      .get("/api/inventory")
+      .set("Authorization", `Bearer ${newToken}`);
+    expect(newTokenAccess.status).toBe(200);
+
+    const logoutResponse = await request(app)
+      .post("/api/auth/logout")
+      .set("Authorization", `Bearer ${newToken}`)
+      .send({});
+    expect(logoutResponse.status).toBe(204);
+
+    const afterLogout = await request(app)
+      .get("/api/inventory")
+      .set("Authorization", `Bearer ${newToken}`);
+    expect(afterLogout.status).toBe(401);
+  });
+
   it("creates distribution and deducts stock from inventory", async () => {
     const { app, token } = await createAuthenticatedClient();
 
@@ -138,4 +173,3 @@ describe("CKMedWare API integration", () => {
     expect(amoxicillin.quantity).toBe(70);
   });
 });
-

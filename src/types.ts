@@ -216,6 +216,8 @@ export type LoginResponse = {
   user: User;
 };
 
+export type TokenRefreshResponse = LoginResponse;
+
 export type SessionRecord = {
   token: string;
   userId: string;

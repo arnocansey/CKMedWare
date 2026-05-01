@@ -426,6 +426,40 @@ export class PrismaStore implements DataStore {
     return result;
   }
 
+  async refreshSession(token: string): Promise<LoginResponse | null> {
+    await this.ensureBootstrapUser();
+
+    const session = await this.prisma.session.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    const nextToken = createToken();
+    await this.prisma.$transaction([
+      this.prisma.session.delete({ where: { token } }),
+      this.prisma.session.create({
+        data: {
+          token: nextToken,
+          userId: session.userId,
+        },
+      }),
+    ]);
+
+    return {
+      token: nextToken,
+      user: toUser(session.user),
+    };
+  }
+
+  async revokeSession(token: string): Promise<void> {
+    await this.ensureBootstrapUser();
+    await this.prisma.session.deleteMany({ where: { token } });
+  }
+
   async getUserForToken(token: string) {
     await this.ensureBootstrapUser();
     const ttlDays = getSessionTtlDays();
@@ -836,10 +870,19 @@ export class PrismaStore implements DataStore {
 
     const stops = await this.prisma.deliveryStop.findMany({
       where: {
-        scheduledTime: {
-          gte: today,
-          lt: tomorrow,
-        },
+        OR: [
+          {
+            scheduledTime: {
+              gte: today,
+              lt: tomorrow,
+            },
+          },
+          {
+            status: {
+              in: [DeliveryStopStatus.active, DeliveryStopStatus.next],
+            },
+          },
+        ],
       },
       include: {
         outlet: true,

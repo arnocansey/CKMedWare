@@ -27,6 +27,8 @@ import type {
 export interface DataStore {
   authenticate(email: string, password: string): Promise<LoginResponse | null>;
   signup(input: SignupRequest): Promise<LoginResponse>;
+  refreshSession(token: string): Promise<LoginResponse | null>;
+  revokeSession(token: string): Promise<void>;
   getUserForToken(token: string): Promise<User | null>;
   getDashboard(user: User): Promise<DashboardResponse>;
   getOrders(): Promise<OrdersResponse>;
