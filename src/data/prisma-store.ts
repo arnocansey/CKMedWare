@@ -51,6 +51,14 @@ function createToken() {
   return `ckm_${randomUUID().replaceAll("-", "")}`;
 }
 
+function getSessionTtlDays() {
+  const days = Number(process.env.SESSION_TTL_DAYS ?? 30);
+  if (!Number.isFinite(days) || days <= 0) {
+    return 30;
+  }
+  return Math.floor(days);
+}
+
 function toUser(user: PrismaUser): User {
   return {
     id: user.id,
@@ -420,6 +428,17 @@ export class PrismaStore implements DataStore {
 
   async getUserForToken(token: string) {
     await this.ensureBootstrapUser();
+    const ttlDays = getSessionTtlDays();
+    const now = new Date();
+    const minCreatedAt = addDays(now, -ttlDays);
+
+    await this.prisma.session.deleteMany({
+      where: {
+        createdAt: {
+          lt: minCreatedAt,
+        },
+      },
+    });
 
     const session = await this.prisma.session.findUnique({
       where: { token },
@@ -544,7 +563,7 @@ export class PrismaStore implements DataStore {
     return {
       filters: ["All", "Pending", "Processing", "Delivered", "Cancelled"],
       orders: distributions.map((distribution: OrderDistribution) => {
-        const lineItems = distribution.items.map((item) => {
+        const lineItems = distribution.items.map((item: OrderDistribution["items"][number]) => {
           const batch = [...item.product.stockBatches].sort(
             (left, right) => left.expiresAt.getTime() - right.expiresAt.getTime(),
           )[0];
@@ -600,8 +619,8 @@ export class PrismaStore implements DataStore {
 
     return {
       filters: ["All", "Pending", "Received"],
-      orders: orders.map((order): PurchaseOrder => {
-        const totalValue = order.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+      orders: orders.map((order: typeof orders[number]): PurchaseOrder => {
+        const totalValue = order.items.reduce((sum: number, item: typeof order.items[number]) => sum + item.quantity * item.costPrice, 0);
 
         return {
           id: order.id,
@@ -609,13 +628,13 @@ export class PrismaStore implements DataStore {
           supplier: order.supplierName,
           status: order.status === PurchaseOrderStatus.received ? "received" : "pending",
           items: order.items.length,
-          units: order.items.reduce((sum, item) => sum + item.quantity, 0),
+          units: order.items.reduce((sum: number, item: typeof order.items[number]) => sum + item.quantity, 0),
           total: formatCurrency(totalValue),
           totalValue,
           date: formatDateOnly(order.createdAt),
           createdAt: order.createdAt.toISOString(),
           updatedAt: order.updatedAt.toISOString(),
-          lineItems: order.items.map((item) => ({
+          lineItems: order.items.map((item: typeof order.items[number]) => ({
             drugName: item.drugName,
             quantity: item.quantity,
             expiryDate: formatDateOnly(item.expiresAt),
@@ -670,7 +689,7 @@ export class PrismaStore implements DataStore {
       include: { items: true },
     });
 
-    const totalValue = order.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+    const totalValue = order.items.reduce((sum: number, item: typeof order.items[number]) => sum + item.quantity * item.costPrice, 0);
 
     return {
       id: order.id,
@@ -678,13 +697,13 @@ export class PrismaStore implements DataStore {
       supplier: order.supplierName,
       status: "pending",
       items: order.items.length,
-      units: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      units: order.items.reduce((sum: number, item: typeof order.items[number]) => sum + item.quantity, 0),
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(order.createdAt),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
-      lineItems: order.items.map((item) => ({
+      lineItems: order.items.map((item: typeof order.items[number]) => ({
         drugName: item.drugName,
         quantity: item.quantity,
         expiryDate: formatDateOnly(item.expiresAt),
@@ -696,7 +715,7 @@ export class PrismaStore implements DataStore {
 
   async receivePurchaseOrder(id: string): Promise<PurchaseOrder> {
     await this.ensureBootstrapUser();
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.purchaseOrder.findFirst({
         where: { id },
         include: { items: true },
@@ -764,7 +783,7 @@ export class PrismaStore implements DataStore {
       include: { items: true },
     });
 
-    const totalValue = updated.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
+    const totalValue = updated.items.reduce((sum: number, item: typeof updated.items[number]) => sum + item.quantity * item.costPrice, 0);
 
     return {
       id: updated.id,
@@ -772,13 +791,13 @@ export class PrismaStore implements DataStore {
       supplier: updated.supplierName,
       status: "received",
       items: updated.items.length,
-      units: updated.items.reduce((sum, item) => sum + item.quantity, 0),
+      units: updated.items.reduce((sum: number, item: typeof updated.items[number]) => sum + item.quantity, 0),
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(updated.createdAt),
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-      lineItems: updated.items.map((item) => ({
+      lineItems: updated.items.map((item: typeof updated.items[number]) => ({
         drugName: item.drugName,
         quantity: item.quantity,
         expiryDate: formatDateOnly(item.expiresAt),
@@ -1030,7 +1049,7 @@ export class PrismaStore implements DataStore {
     });
 
     return {
-      branches: outlets.map((outlet): Branch => ({
+      branches: outlets.map((outlet: typeof outlets[number]): Branch => ({
         id: outlet.id,
         name: outlet.name,
         area: outlet.area,
@@ -1368,7 +1387,7 @@ export class PrismaStore implements DataStore {
         },
       })) + 1;
 
-    const distribution = await this.prisma.$transaction(async (tx) => {
+    const distribution = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       for (const product of products) {
         const requestedQuantity = selectedProductMap.get(product.id) ?? 0;
         const stockBatches = await tx.stockBatch.findMany({

@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { randomUUID } from "node:crypto";
 
 import { store } from "./data/store.js";
 import type {
@@ -114,6 +115,29 @@ function authMiddleware(req: express.Request, res: express.Response, next: expre
 
 export function createApp() {
   const app = express();
+
+  app.use((req, res, next) => {
+    const requestId = req.headers["x-request-id"]?.toString() || randomUUID();
+    const startedAt = Date.now();
+    res.setHeader("x-request-id", requestId);
+
+    res.on("finish", () => {
+      const durationMs = Date.now() - startedAt;
+      console.log(
+        JSON.stringify({
+          level: "info",
+          event: "http_request",
+          requestId,
+          method: req.method,
+          path: req.path,
+          status: res.statusCode,
+          durationMs,
+        }),
+      );
+    });
+
+    next();
+  });
 
   app.use(cors());
   app.use(express.json());

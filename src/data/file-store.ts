@@ -48,6 +48,14 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function getSessionTtlMs() {
+  const days = Number(process.env.SESSION_TTL_DAYS ?? 30);
+  if (!Number.isFinite(days) || days <= 0) {
+    return 30 * 86400000;
+  }
+  return Math.floor(days * 86400000);
+}
+
 function formatCurrency(value: number) {
   return `GHS ${value.toLocaleString()}`;
 }
@@ -118,7 +126,10 @@ export class FileStore implements DataStore {
   private readonly filePath: string;
 
   constructor() {
-    const dataDir = path.resolve(process.cwd(), "data");
+    const configuredDataDir = process.env.DATA_DIR?.trim();
+    const dataDir = configuredDataDir
+      ? path.resolve(configuredDataDir)
+      : path.resolve(process.cwd(), "data");
     this.filePath = path.join(dataDir, "store.json");
 
     if (!existsSync(dataDir)) {
@@ -223,7 +234,15 @@ export class FileStore implements DataStore {
 
   async getUserForToken(token: string) {
     const database = this.readDatabase();
+    const now = Date.now();
+    const ttlMs = getSessionTtlMs();
+    database.sessions = database.sessions.filter((entry) => {
+      const createdAt = new Date(entry.createdAt).getTime();
+      return Number.isFinite(createdAt) && now - createdAt <= ttlMs;
+    });
     const session = database.sessions.find((entry) => entry.token === token);
+
+    this.writeDatabase(database);
 
     if (!session) {
       return null;
