@@ -60,6 +60,27 @@ function csvEscape(value: unknown) {
   return content;
 }
 
+function isPositiveNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegativeNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isIsoDateOnly(value: unknown) {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime());
+}
+
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.path === "/health" || req.path === "/api/auth/login" || req.path === "/api/auth/signup") {
     next();
@@ -158,6 +179,25 @@ export function createApp() {
 
   app.post("/api/purchase-orders", asyncHandler(async (req, res) => {
     const body = req.body as Partial<PurchaseOrderCreateRequest> | undefined;
+
+    if (!body || !body.supplierName || !Array.isArray(body.items) || body.items.length === 0) {
+      res.status(400).json({ message: "Supplier and at least one item are required." });
+      return;
+    }
+
+    for (const item of body.items) {
+      if (
+        !item ||
+        typeof item.drugName !== "string" ||
+        item.drugName.trim().length === 0 ||
+        !isPositiveNumber(item.quantity) ||
+        !isPositiveNumber(item.costPrice) ||
+        !isIsoDateOnly(item.expiryDate)
+      ) {
+        res.status(400).json({ message: "Each item requires drugName, positive quantity/costPrice, and expiryDate (YYYY-MM-DD)." });
+        return;
+      }
+    }
 
     const response = await store.createPurchaseOrder({
       supplierName: body?.supplierName ?? "",
@@ -272,6 +312,18 @@ export function createApp() {
   app.post("/api/inventory", asyncHandler(async (req, res) => {
     const body = req.body as Partial<InventoryCreateRequest> | undefined;
 
+    if (
+      !body ||
+      typeof body.drugName !== "string" ||
+      body.drugName.trim().length === 0 ||
+      !isPositiveNumber(body.quantity) ||
+      !isPositiveNumber(body.costPrice) ||
+      !isIsoDateOnly(body.expiryDate)
+    ) {
+      res.status(400).json({ message: "drugName, positive quantity/costPrice, and expiryDate (YYYY-MM-DD) are required." });
+      return;
+    }
+
     const response = await store.createInventoryItem({
       drugName: body?.drugName ?? "",
       quantity: Number(body?.quantity ?? 0),
@@ -289,6 +341,29 @@ export function createApp() {
     const id = getRouteParam(req.params, "id");
     if (!id) {
       res.status(400).json({ message: "Missing inventory id" });
+      return;
+    }
+
+    const hasAnyField =
+      body?.quantity !== undefined || body?.expiryDate !== undefined || body?.costPrice !== undefined;
+
+    if (!hasAnyField) {
+      res.status(400).json({ message: "Provide at least one field to update." });
+      return;
+    }
+
+    if (body?.quantity !== undefined && !isPositiveNumber(body.quantity)) {
+      res.status(400).json({ message: "quantity must be a positive number." });
+      return;
+    }
+
+    if (body?.costPrice !== undefined && !isPositiveNumber(body.costPrice)) {
+      res.status(400).json({ message: "costPrice must be a positive number." });
+      return;
+    }
+
+    if (body?.expiryDate !== undefined && !isIsoDateOnly(body.expiryDate)) {
+      res.status(400).json({ message: "expiryDate must be in YYYY-MM-DD format." });
       return;
     }
 
@@ -318,6 +393,19 @@ export function createApp() {
 
   app.post("/api/distributions", asyncHandler(async (req, res) => {
     const body = req.body as Partial<DistributionCreateRequest> | undefined;
+
+    if (!body || !Array.isArray(body.products) || body.products.length === 0) {
+      res.status(400).json({ message: "At least one product is required." });
+      return;
+    }
+
+    for (const product of body.products) {
+      if (!product?.id || !isNonNegativeNumber(product.quantity)) {
+        res.status(400).json({ message: "Each product requires id and non-negative quantity." });
+        return;
+      }
+    }
+
     const response = await store.createDistribution({
       outletId: body?.outletId ?? null,
       outletName: body?.outletName ?? "",
@@ -370,6 +458,50 @@ export function createApp() {
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected server error";
+    const code =
+      typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+
+    if (code === "P2002") {
+      res.status(409).json({ message: "A unique value already exists." });
+      return;
+    }
+
+    if (code === "P2003" || code === "P2025") {
+      res.status(404).json({ message });
+      return;
+    }
+
+    if (code === "P2004") {
+      res.status(400).json({ message });
+      return;
+    }
+
+    if (
+      message.includes("required") ||
+      message.includes("valid") ||
+      message.includes("must be") ||
+      message.includes("cannot be")
+    ) {
+      res.status(400).json({ message });
+      return;
+    }
+
+    if (
+      message.includes("not found") ||
+      message.includes("no longer exist")
+    ) {
+      res.status(404).json({ message });
+      return;
+    }
+
+    if (
+      message.includes("already exists") ||
+      message.includes("already uses")
+    ) {
+      res.status(409).json({ message });
+      return;
+    }
+
     res.status(500).json({ message });
   });
 

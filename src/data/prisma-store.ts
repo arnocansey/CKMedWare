@@ -231,6 +231,10 @@ function parseExpiryDate(value: string) {
     throw new Error("Enter a valid expiry date.");
   }
 
+  if (expiryDate < startOfDay()) {
+    throw new Error("Expiry date cannot be in the past.");
+  }
+
   return expiryDate;
 }
 
@@ -692,42 +696,20 @@ export class PrismaStore implements DataStore {
 
   async receivePurchaseOrder(id: string): Promise<PurchaseOrder> {
     await this.ensureBootstrapUser();
-
-    const existing = await this.prisma.purchaseOrder.findFirst({
-      where: { id },
-      include: { items: true },
-    });
-
-    if (!existing) {
-      throw new Error("Order not found.");
-    }
-
-    if (existing.status === PurchaseOrderStatus.received) {
-      const totalValue = existing.items.reduce((sum, item) => sum + item.quantity * item.costPrice, 0);
-
-      return {
-        id: existing.id,
-        orderNumber: existing.orderNumber,
-        supplier: existing.supplierName,
-        status: "received",
-        items: existing.items.length,
-        units: existing.items.reduce((sum, item) => sum + item.quantity, 0),
-        total: formatCurrency(totalValue),
-        totalValue,
-        date: formatDateOnly(existing.createdAt),
-        createdAt: existing.createdAt.toISOString(),
-        updatedAt: existing.updatedAt.toISOString(),
-        lineItems: existing.items.map((item) => ({
-          drugName: item.drugName,
-          quantity: item.quantity,
-          expiryDate: formatDateOnly(item.expiresAt),
-          costPrice: item.costPrice,
-          batchNumber: item.batchNumber,
-        })),
-      };
-    }
-
     await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.purchaseOrder.findFirst({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (!existing) {
+        throw new Error("Order not found.");
+      }
+
+      if (existing.status === PurchaseOrderStatus.received) {
+        return;
+      }
+
       const outlet = await tx.outlet.upsert({
         where: { name: "Main Pharmacy Store" },
         update: { area: "Inventory", isActive: true },
@@ -775,7 +757,7 @@ export class PrismaStore implements DataStore {
           receivedAt: new Date(),
         },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     const updated = await this.prisma.purchaseOrder.findFirstOrThrow({
       where: { id },
@@ -1360,28 +1342,6 @@ export class PrismaStore implements DataStore {
 
     const selectedProductMap = new Map(selectedProducts.map((product) => [product.id, product.quantity]));
 
-    for (const product of products) {
-      const requestedQuantity = selectedProductMap.get(product.id) ?? 0;
-      const stockBatches = await this.prisma.stockBatch.findMany({
-        where: {
-          productId: product.id,
-          unitsRemaining: {
-            gt: 0,
-          },
-        },
-      });
-      const availableQuantity = stockBatches.reduce(
-        (sum: number, batch: typeof stockBatches[number]) => sum + batch.unitsRemaining,
-        0,
-      );
-
-      if (availableQuantity < requestedQuantity) {
-        throw new Error(
-          `Not enough stock for ${product.name}. Available: ${availableQuantity}, requested: ${requestedQuantity}.`,
-        );
-      }
-    }
-
     const lineItems = products.map((product: typeof products[number]) => ({
       productId: product.id,
       quantity: selectedProductMap.get(product.id) ?? 0,
@@ -1408,61 +1368,87 @@ export class PrismaStore implements DataStore {
         },
       })) + 1;
 
-    const distribution = await this.prisma.distribution.create({
-      data: {
-        orderNumber: createOrderNumber(),
-        outletId: outlet.id,
-        vehicleId: vehicle.id,
-        status: DistributionStatus.pending,
-        scheduledFor,
-        deliveryFee,
-        totalAmount,
-        signature: input.signature?.trim() || null,
-        items: {
-          create: lineItems,
-        },
-        deliveryStop: {
-          create: {
-            outletId: outlet.id,
-            vehicleId: vehicle.id,
-            routeCode: vehicle.registrationNumber,
-            sequence,
-            status: DeliveryStopStatus.next,
-            scheduledTime: scheduledFor,
-          },
-        },
-      },
-    });
-
-    for (const item of lineItems) {
-      let remainingQuantity = item.quantity;
-      const stockBatches = await this.prisma.stockBatch.findMany({
-        where: {
-          productId: item.productId,
-          unitsRemaining: {
-            gt: 0,
-          },
-        },
-        orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
-      });
-
-      for (const batch of stockBatches) {
-        if (remainingQuantity <= 0) {
-          break;
-        }
-
-        const deductedQuantity = Math.min(batch.unitsRemaining, remainingQuantity);
-        await this.prisma.stockBatch.update({
+    const distribution = await this.prisma.$transaction(async (tx) => {
+      for (const product of products) {
+        const requestedQuantity = selectedProductMap.get(product.id) ?? 0;
+        const stockBatches = await tx.stockBatch.findMany({
           where: {
-            id: batch.id,
-          },
-          data: {
-            unitsRemaining: batch.unitsRemaining - deductedQuantity,
+            productId: product.id,
+            unitsRemaining: {
+              gt: 0,
+            },
           },
         });
-        remainingQuantity -= deductedQuantity;
+        const availableQuantity = stockBatches.reduce(
+          (sum: number, batch: typeof stockBatches[number]) => sum + batch.unitsRemaining,
+          0,
+        );
+
+        if (availableQuantity < requestedQuantity) {
+          throw new Error(
+            `Not enough stock for ${product.name}. Available: ${availableQuantity}, requested: ${requestedQuantity}.`,
+          );
+        }
       }
-    }
+
+      const createdDistribution = await tx.distribution.create({
+        data: {
+          orderNumber: createOrderNumber(),
+          outletId: outlet.id,
+          vehicleId: vehicle.id,
+          status: DistributionStatus.pending,
+          scheduledFor,
+          deliveryFee,
+          totalAmount,
+          signature: input.signature?.trim() || null,
+          items: {
+            create: lineItems,
+          },
+          deliveryStop: {
+            create: {
+              outletId: outlet.id,
+              vehicleId: vehicle.id,
+              routeCode: vehicle.registrationNumber,
+              sequence,
+              status: DeliveryStopStatus.next,
+              scheduledTime: scheduledFor,
+            },
+          },
+        },
+      });
+
+      for (const item of lineItems) {
+        let remainingQuantity = item.quantity;
+        const stockBatches = await tx.stockBatch.findMany({
+          where: {
+            productId: item.productId,
+            unitsRemaining: {
+              gt: 0,
+            },
+          },
+          orderBy: [{ expiresAt: "asc" }, { createdAt: "asc" }],
+        });
+
+        for (const batch of stockBatches) {
+          if (remainingQuantity <= 0) {
+            break;
+          }
+
+          const deductedQuantity = Math.min(batch.unitsRemaining, remainingQuantity);
+          await tx.stockBatch.update({
+            where: {
+              id: batch.id,
+            },
+            data: {
+              unitsRemaining: batch.unitsRemaining - deductedQuantity,
+            },
+          });
+          remainingQuantity -= deductedQuantity;
+        }
+      }
+
+      return createdDistribution;
+    }, { isolationLevel: "Serializable" });
 
     const response: DistributionCreateResponse = {
       distributionId: distribution.id,
