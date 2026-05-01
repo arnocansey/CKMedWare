@@ -379,12 +379,14 @@ export class FileStore implements DataStore {
         const status: DeliveryStop["status"] = index === 0 ? "active" : "next";
 
         return {
+          stopId: record.distributionId,
           id: index + 1,
           time,
           outlet: record.outletName,
           area: "Distribution area",
+          outletPhone: record.outletPhone ?? database.distributionDraft.outletPhone ?? null,
           units: record.units,
-          status,
+          status: record.deliveryStatus ?? status,
           eta: record.eta || "Scheduled",
         };
       });
@@ -395,6 +397,52 @@ export class FileStore implements DataStore {
       activeStop: stops[0] ?? null,
       stops,
     };
+  }
+
+  async startDeliveryStop(id: string): Promise<DeliveriesResponse> {
+    const database = this.readDatabase();
+    const index = database.submittedDistributions.findIndex((record) => record.distributionId === id);
+    if (index < 0) {
+      throw new Error("Delivery stop not found.");
+    }
+
+    database.submittedDistributions = database.submittedDistributions.map((record, currentIndex) => ({
+      ...record,
+      deliveryStatus:
+        currentIndex === index
+          ? "active"
+          : (record.deliveryStatus ?? "next") === "active"
+            ? "next"
+            : (record.deliveryStatus ?? "next"),
+    }));
+    this.writeDatabase(database);
+    return this.getDeliveries();
+  }
+
+  async completeDeliveryStop(id: string): Promise<DeliveriesResponse> {
+    const database = this.readDatabase();
+    const index = database.submittedDistributions.findIndex((record) => record.distributionId === id);
+    if (index < 0) {
+      throw new Error("Delivery stop not found.");
+    }
+
+    database.submittedDistributions[index] = {
+      ...database.submittedDistributions[index],
+      deliveryStatus: "done",
+    };
+
+    const nextIndex = database.submittedDistributions.findIndex(
+      (record, currentIndex) => currentIndex !== index && (record.deliveryStatus ?? "next") === "next",
+    );
+    if (nextIndex >= 0) {
+      database.submittedDistributions[nextIndex] = {
+        ...database.submittedDistributions[nextIndex],
+        deliveryStatus: "active",
+      };
+    }
+
+    this.writeDatabase(database);
+    return this.getDeliveries();
   }
 
   async getReports(): Promise<ReportsResponse> {
@@ -425,6 +473,7 @@ export class FileStore implements DataStore {
           id: outletId,
           name: outletName,
           area: "Unknown",
+          phone: database.distributionDraft.outletPhone ?? null,
           isActive: true,
         },
       ],
@@ -453,6 +502,7 @@ export class FileStore implements DataStore {
       id,
       name: database.distributionDraft.outletName,
       area: "Unknown",
+      phone: database.distributionDraft.outletPhone ?? null,
       isActive: input.isActive ?? true,
     };
   }
@@ -669,8 +719,10 @@ export class FileStore implements DataStore {
       createdAt,
       dateValue: input.dateValue || database.distributionDraft.dateValue,
       deliveryFee: database.distributionDraft.deliveryFee,
+      deliveryStatus: "active",
       signature: input.signature?.trim() || null,
       items: selectedLineItems.length,
+      outletPhone: database.distributionDraft.outletPhone ?? null,
       products: selectedLineItems.map((product) => {
         const batch = selectedBatchLookup.get(product.id);
 
@@ -736,6 +788,7 @@ export class FileStore implements DataStore {
     const database = this.readDatabase();
     const name = input.name.trim();
     const area = input.area.trim();
+    const phone = input.phone?.trim() || null;
 
     if (!name || !area) {
       throw new Error("Outlet name and area are required.");
@@ -744,9 +797,10 @@ export class FileStore implements DataStore {
     const id = database.distributionDraft.outletId ?? `out_${randomUUID()}`;
     database.distributionDraft.outletId = id;
     database.distributionDraft.outletName = name;
+    database.distributionDraft.outletPhone = phone;
     this.writeDatabase(database);
 
-    return { id, name, area };
+    return { id, name, area, phone };
   }
 
   async createVehicle(input: SetupVehicleRequest): Promise<SetupVehicleResponse> {

@@ -1,0 +1,1 @@
+ALTER TABLE "Outlet" ADD COLUMN "phone" TEXT;

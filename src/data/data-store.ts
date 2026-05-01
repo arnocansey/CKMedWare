@@ -36,6 +36,8 @@ export interface DataStore {
   createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder>;
   receivePurchaseOrder(id: string): Promise<PurchaseOrder>;
   getDeliveries(): Promise<DeliveriesResponse>;
+  startDeliveryStop(id: string): Promise<DeliveriesResponse>;
+  completeDeliveryStop(id: string): Promise<DeliveriesResponse>;
   getReports(): Promise<ReportsResponse>;
   getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse>;
   listBranches(): Promise<BranchListResponse>;

@@ -317,6 +317,30 @@ export function createApp() {
     res.json(await store.getDeliveries());
   }));
 
+  app.post("/api/deliveries/:id/start", asyncHandler(async (req, res) => {
+    const id = getRouteParam(req.params, "id");
+    if (!id) {
+      res.status(400).json({ message: "Missing delivery stop id" });
+      return;
+    }
+
+    const response = await store.startDeliveryStop(id);
+    backendEvents.publish("delivery.started", { stopId: id });
+    res.json(response);
+  }));
+
+  app.post("/api/deliveries/:id/complete", asyncHandler(async (req, res) => {
+    const id = getRouteParam(req.params, "id");
+    if (!id) {
+      res.status(400).json({ message: "Missing delivery stop id" });
+      return;
+    }
+
+    const response = await store.completeDeliveryStop(id);
+    backendEvents.publish("delivery.completed", { stopId: id });
+    res.json(response);
+  }));
+
   app.get("/api/reports", asyncHandler(async (_req, res) => {
     res.json(await store.getReports());
   }));
@@ -382,6 +406,7 @@ export function createApp() {
     const response = await store.createOutlet({
       name: body?.name ?? "",
       area: body?.area ?? "",
+      phone: body?.phone ?? "",
     });
 
     backendEvents.publish("branch.created", {
@@ -545,6 +570,7 @@ export function createApp() {
     const response = await store.createOutlet({
       name: body?.name ?? "",
       area: body?.area ?? "",
+      phone: body?.phone ?? "",
     });
 
     res.status(201).json(response);

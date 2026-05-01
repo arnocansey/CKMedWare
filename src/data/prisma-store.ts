@@ -852,10 +852,12 @@ export class PrismaStore implements DataStore {
     }
 
     return {
+      stopId: stop.id,
       id: stop.sequence,
       time: formatTime(stop.scheduledTime),
       outlet: stop.outlet.name,
       area: stop.outlet.area,
+      outletPhone: stop.outlet.phone,
       units,
       status: stop.status,
       eta,
@@ -911,6 +913,77 @@ export class PrismaStore implements DataStore {
       activeStop: focusedStop,
       stops: mappedStops,
     };
+  }
+
+  async startDeliveryStop(id: string): Promise<DeliveriesResponse> {
+    await this.ensureBootstrapUser();
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const target = await tx.deliveryStop.findFirst({ where: { id } });
+      if (!target) {
+        throw new Error("Delivery stop not found.");
+      }
+
+      await tx.deliveryStop.updateMany({
+        where: {
+          vehicleId: target.vehicleId,
+          status: DeliveryStopStatus.active,
+          NOT: { id: target.id },
+        },
+        data: { status: DeliveryStopStatus.next },
+      });
+
+      await tx.deliveryStop.update({
+        where: { id: target.id },
+        data: { status: DeliveryStopStatus.active },
+      });
+
+      await tx.distribution.update({
+        where: { id: target.distributionId },
+        data: { status: DistributionStatus.processing },
+      });
+    });
+
+    return this.getDeliveries();
+  }
+
+  async completeDeliveryStop(id: string): Promise<DeliveriesResponse> {
+    await this.ensureBootstrapUser();
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const target = await tx.deliveryStop.findFirst({ where: { id } });
+      if (!target) {
+        throw new Error("Delivery stop not found.");
+      }
+
+      await tx.deliveryStop.update({
+        where: { id: target.id },
+        data: {
+          status: DeliveryStopStatus.done,
+          deliveredAt: new Date(),
+        },
+      });
+
+      await tx.distribution.update({
+        where: { id: target.distributionId },
+        data: { status: DistributionStatus.delivered },
+      });
+
+      const nextStop = await tx.deliveryStop.findFirst({
+        where: {
+          vehicleId: target.vehicleId,
+          status: DeliveryStopStatus.next,
+        },
+        orderBy: [{ sequence: "asc" }, { scheduledTime: "asc" }],
+      });
+
+      if (nextStop) {
+        await tx.deliveryStop.update({
+          where: { id: nextStop.id },
+          data: { status: DeliveryStopStatus.active },
+        });
+      }
+    });
+
+    return this.getDeliveries();
   }
 
   private summarizeDistributions(distributions: DistributionWithRelations[]) {
@@ -1096,6 +1169,7 @@ export class PrismaStore implements DataStore {
         id: outlet.id,
         name: outlet.name,
         area: outlet.area,
+        phone: outlet.phone,
         isActive: outlet.isActive,
       })),
     };
@@ -1145,6 +1219,7 @@ export class PrismaStore implements DataStore {
       id: outlet.id,
       name: outlet.name,
       area: outlet.area,
+      phone: outlet.phone,
       isActive: outlet.isActive,
     };
   }
@@ -1530,6 +1605,7 @@ export class PrismaStore implements DataStore {
 
     const name = input.name.trim();
     const area = input.area.trim();
+    const phone = input.phone?.trim() || null;
 
     if (!name || !area) {
       throw new Error("Outlet name and area are required.");
@@ -1539,11 +1615,13 @@ export class PrismaStore implements DataStore {
       where: { name },
       update: {
         area,
+        phone,
         isActive: true,
       },
       create: {
         name,
         area,
+        phone,
       },
     });
 
@@ -1551,6 +1629,7 @@ export class PrismaStore implements DataStore {
       id: outlet.id,
       name: outlet.name,
       area: outlet.area,
+      phone: outlet.phone,
     };
   }
 

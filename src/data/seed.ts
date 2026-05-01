@@ -66,6 +66,7 @@ export function createSeedDatabase(): PersistedDatabase {
     distributionDraft: {
       outletId: null,
       outletName: "",
+      outletPhone: null,
       vehicleId: null,
       dateLabel: "Today",
       dateValue: todayIsoDate(),

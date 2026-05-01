@@ -107,10 +107,12 @@ export type PurchaseOrderCreateRequest = {
 export type DeliveryStopStatus = "done" | "active" | "next";
 
 export type DeliveryStop = {
+  stopId: string;
   id: number;
   time: string;
   outlet: string;
   area: string;
+  outletPhone?: string | null;
   units: number;
   status: DeliveryStopStatus;
   eta: string;
@@ -191,6 +193,7 @@ export type DistributionProduct = {
 export type DistributionDraftResponse = {
   outletId: string | null;
   outletName: string;
+  outletPhone?: string | null;
   vehicleId: string | null;
   dateLabel: string;
   dateValue: string;
@@ -250,12 +253,14 @@ export type DistributionCreateResponse = {
 export type SetupOutletRequest = {
   name: string;
   area: string;
+  phone?: string;
 };
 
 export type SetupOutletResponse = {
   id: string;
   name: string;
   area: string;
+  phone?: string | null;
 };
 
 export type Branch = SetupOutletResponse & {
@@ -307,6 +312,7 @@ export type SubmittedDistributionRecord = DistributionCreateResponse & {
   createdAt: string;
   dateValue: string;
   deliveryFee: number;
+  deliveryStatus?: DeliveryStopStatus;
   signature?: string | null;
   items: number;
   products: Array<{
@@ -317,6 +323,7 @@ export type SubmittedDistributionRecord = DistributionCreateResponse & {
     expiryDate?: string;
     batchNumber?: string;
   }>;
+  outletPhone?: string | null;
 };
 
 export type PersistedDatabase = {

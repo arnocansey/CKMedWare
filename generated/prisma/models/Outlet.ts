@@ -28,6 +28,7 @@ export type OutletMinAggregateOutputType = {
   id: string | null
   name: string | null
   area: string | null
+  phone: string | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -37,6 +38,7 @@ export type OutletMaxAggregateOutputType = {
   id: string | null
   name: string | null
   area: string | null
+  phone: string | null
   isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -46,6 +48,7 @@ export type OutletCountAggregateOutputType = {
   id: number
   name: number
   area: number
+  phone: number
   isActive: number
   createdAt: number
   updatedAt: number
@@ -57,6 +60,7 @@ export type OutletMinAggregateInputType = {
   id?: true
   name?: true
   area?: true
+  phone?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -66,6 +70,7 @@ export type OutletMaxAggregateInputType = {
   id?: true
   name?: true
   area?: true
+  phone?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -75,6 +80,7 @@ export type OutletCountAggregateInputType = {
   id?: true
   name?: true
   area?: true
+  phone?: true
   isActive?: true
   createdAt?: true
   updatedAt?: true
@@ -157,6 +163,7 @@ export type OutletGroupByOutputType = {
   id: string
   name: string
   area: string
+  phone: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -187,6 +194,7 @@ export type OutletWhereInput = {
   id?: Prisma.StringFilter<"Outlet"> | string
   name?: Prisma.StringFilter<"Outlet"> | string
   area?: Prisma.StringFilter<"Outlet"> | string
+  phone?: Prisma.StringNullableFilter<"Outlet"> | string | null
   isActive?: Prisma.BoolFilter<"Outlet"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Outlet"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Outlet"> | Date | string
@@ -199,6 +207,7 @@ export type OutletOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   area?: Prisma.SortOrder
+  phone?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -214,6 +223,7 @@ export type OutletWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.OutletWhereInput[]
   NOT?: Prisma.OutletWhereInput | Prisma.OutletWhereInput[]
   area?: Prisma.StringFilter<"Outlet"> | string
+  phone?: Prisma.StringNullableFilter<"Outlet"> | string | null
   isActive?: Prisma.BoolFilter<"Outlet"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Outlet"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Outlet"> | Date | string
@@ -226,6 +236,7 @@ export type OutletOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   area?: Prisma.SortOrder
+  phone?: Prisma.SortOrderInput | Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -241,6 +252,7 @@ export type OutletScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"Outlet"> | string
   name?: Prisma.StringWithAggregatesFilter<"Outlet"> | string
   area?: Prisma.StringWithAggregatesFilter<"Outlet"> | string
+  phone?: Prisma.StringNullableWithAggregatesFilter<"Outlet"> | string | null
   isActive?: Prisma.BoolWithAggregatesFilter<"Outlet"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Outlet"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Outlet"> | Date | string
@@ -250,6 +262,7 @@ export type OutletCreateInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -262,6 +275,7 @@ export type OutletUncheckedCreateInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -274,6 +288,7 @@ export type OutletUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -286,6 +301,7 @@ export type OutletUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -298,6 +314,7 @@ export type OutletCreateManyInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -307,6 +324,7 @@ export type OutletUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -316,6 +334,7 @@ export type OutletUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -325,6 +344,7 @@ export type OutletCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   area?: Prisma.SortOrder
+  phone?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -334,6 +354,7 @@ export type OutletMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   area?: Prisma.SortOrder
+  phone?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -343,6 +364,7 @@ export type OutletMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
   area?: Prisma.SortOrder
+  phone?: Prisma.SortOrder
   isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -351,6 +373,10 @@ export type OutletMinOrderByAggregateInput = {
 export type OutletScalarRelationFilter = {
   is?: Prisma.OutletWhereInput
   isNot?: Prisma.OutletWhereInput
+}
+
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
 }
 
 export type BoolFieldUpdateOperationsInput = {
@@ -403,6 +429,7 @@ export type OutletCreateWithoutStockBatchesInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -414,6 +441,7 @@ export type OutletUncheckedCreateWithoutStockBatchesInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -441,6 +469,7 @@ export type OutletUpdateWithoutStockBatchesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -452,6 +481,7 @@ export type OutletUncheckedUpdateWithoutStockBatchesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -463,6 +493,7 @@ export type OutletCreateWithoutDistributionsInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -474,6 +505,7 @@ export type OutletUncheckedCreateWithoutDistributionsInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -501,6 +533,7 @@ export type OutletUpdateWithoutDistributionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -512,6 +545,7 @@ export type OutletUncheckedUpdateWithoutDistributionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -523,6 +557,7 @@ export type OutletCreateWithoutDeliveryStopsInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -534,6 +569,7 @@ export type OutletUncheckedCreateWithoutDeliveryStopsInput = {
   id?: string
   name: string
   area: string
+  phone?: string | null
   isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -561,6 +597,7 @@ export type OutletUpdateWithoutDeliveryStopsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -572,6 +609,7 @@ export type OutletUncheckedUpdateWithoutDeliveryStopsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   area?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -632,6 +670,7 @@ export type OutletSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   id?: boolean
   name?: boolean
   area?: boolean
+  phone?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -645,6 +684,7 @@ export type OutletSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   name?: boolean
   area?: boolean
+  phone?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -654,6 +694,7 @@ export type OutletSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   id?: boolean
   name?: boolean
   area?: boolean
+  phone?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -663,12 +704,13 @@ export type OutletSelectScalar = {
   id?: boolean
   name?: boolean
   area?: boolean
+  phone?: boolean
   isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type OutletOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "area" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["outlet"]>
+export type OutletOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "area" | "phone" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["outlet"]>
 export type OutletInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   stockBatches?: boolean | Prisma.Outlet$stockBatchesArgs<ExtArgs>
   distributions?: boolean | Prisma.Outlet$distributionsArgs<ExtArgs>
@@ -689,6 +731,7 @@ export type $OutletPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     id: string
     name: string
     area: string
+    phone: string | null
     isActive: boolean
     createdAt: Date
     updatedAt: Date
@@ -1121,6 +1164,7 @@ export interface OutletFieldRefs {
   readonly id: Prisma.FieldRef<"Outlet", 'String'>
   readonly name: Prisma.FieldRef<"Outlet", 'String'>
   readonly area: Prisma.FieldRef<"Outlet", 'String'>
+  readonly phone: Prisma.FieldRef<"Outlet", 'String'>
   readonly isActive: Prisma.FieldRef<"Outlet", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Outlet", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Outlet", 'DateTime'>

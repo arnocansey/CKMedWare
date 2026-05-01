@@ -1295,6 +1295,7 @@ export const OutletScalarFieldEnum = {
   id: 'id',
   name: 'name',
   area: 'area',
+  phone: 'phone',
   isActive: 'isActive',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
