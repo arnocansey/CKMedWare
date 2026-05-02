@@ -400,6 +400,10 @@ export function createApp() {
     res.json(await store.listBranches());
   }));
 
+  app.get("/api/vehicles", asyncHandler(async (_req, res) => {
+    res.json(await store.listVehicles());
+  }));
+
   app.post("/api/branches", asyncHandler(async (req, res) => {
     const body = req.body as Partial<SetupOutletRequest> | undefined;
 

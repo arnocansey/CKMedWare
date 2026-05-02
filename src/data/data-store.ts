@@ -21,6 +21,7 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  VehicleListResponse,
   User,
 } from "../types.js";
 
@@ -41,6 +42,7 @@ export interface DataStore {
   getReports(): Promise<ReportsResponse>;
   getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse>;
   listBranches(): Promise<BranchListResponse>;
+  listVehicles(): Promise<VehicleListResponse>;
   updateBranch(id: string, input: BranchUpdateRequest): Promise<import("../types.js").Branch>;
   getDistributionDraft(): Promise<import("../types.js").DistributionDraftResponse>;
   createDistribution(input: DistributionCreateRequest): Promise<DistributionCreateResponse>;

@@ -298,6 +298,14 @@ export type SetupVehicleResponse = {
   defaultDeliveryFee: number;
 };
 
+export type Vehicle = SetupVehicleResponse & {
+  isActive: boolean;
+};
+
+export type VehicleListResponse = {
+  vehicles: Vehicle[];
+};
+
 export type SetupProductRequest = {
   name: string;
   category: string;

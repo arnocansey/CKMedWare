@@ -40,6 +40,7 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  VehicleListResponse,
   User,
 } from "../types.js";
 
@@ -1182,6 +1183,25 @@ export class PrismaStore implements DataStore {
         area: outlet.area,
         phone: outlet.phone,
         isActive: outlet.isActive,
+      })),
+    };
+  }
+
+  async listVehicles(): Promise<VehicleListResponse> {
+    await this.ensureBootstrapUser();
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    });
+
+    return {
+      vehicles: vehicles.map((vehicle: typeof vehicles[number]) => ({
+        id: vehicle.id,
+        name: vehicle.name,
+        registrationNumber: vehicle.registrationNumber,
+        driverName: vehicle.driverName,
+        defaultDeliveryFee: vehicle.defaultDeliveryFee,
+        isActive: vehicle.isActive,
       })),
     };
   }

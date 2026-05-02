@@ -34,6 +34,7 @@ import type {
   SetupVehicleResponse,
   SignupRequest,
   SubmittedDistributionRecord,
+  VehicleListResponse,
   User,
 } from "../types.js";
 
@@ -475,6 +476,29 @@ export class FileStore implements DataStore {
           name: outletName,
           area: "Unknown",
           phone: database.distributionDraft.outletPhone ?? null,
+          isActive: true,
+        },
+      ],
+    };
+  }
+
+  async listVehicles(): Promise<VehicleListResponse> {
+    const database = this.readDatabase();
+    const vehicleId = database.distributionDraft.vehicleId;
+    const vehicleName = database.distributionDraft.vehicleName;
+
+    if (!vehicleId || !vehicleName) {
+      return { vehicles: [] };
+    }
+
+    return {
+      vehicles: [
+        {
+          id: vehicleId,
+          name: vehicleName,
+          registrationNumber: "N/A",
+          driverName: database.distributionDraft.driverName,
+          defaultDeliveryFee: database.distributionDraft.deliveryFee,
           isActive: true,
         },
       ],
