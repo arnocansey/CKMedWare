@@ -872,6 +872,7 @@ export class PrismaStore implements DataStore {
 
     const today = startOfDay();
     const tomorrow = addDays(today, 1);
+    const historyStart = addDays(today, -30);
 
     const stops = await this.prisma.deliveryStop.findMany({
       where: {
@@ -887,6 +888,13 @@ export class PrismaStore implements DataStore {
               in: [DeliveryStopStatus.active, DeliveryStopStatus.next],
             },
           },
+          {
+            status: DeliveryStopStatus.done,
+            scheduledTime: {
+              gte: historyStart,
+              lt: tomorrow,
+            },
+          },
         ],
       },
       include: {
@@ -898,7 +906,7 @@ export class PrismaStore implements DataStore {
           },
         },
       },
-      orderBy: [{ sequence: "asc" }, { scheduledTime: "asc" }],
+      orderBy: [{ scheduledTime: "desc" }, { sequence: "asc" }],
     });
 
     const mappedStops = stops.map((stop: DeliveryStopWithRelations) => this.mapDeliveryStop(stop));
