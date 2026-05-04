@@ -846,17 +846,21 @@ export class PrismaStore implements DataStore {
   private mapDeliveryStop(stop: DeliveryStopWithRelations): DeliveryStop {
     const units = sumUnits(stop.distribution.items);
     let eta = `ETA ${formatTime(stop.scheduledTime)}`;
+    let time = formatTime(stop.scheduledTime);
 
     if (stop.status === DeliveryStopStatus.done) {
       eta = stop.deliveredAt ? `Delivered ${formatTime(stop.deliveredAt)}` : "Delivered";
+      time = stop.deliveredAt ? formatTime(stop.deliveredAt) : formatTime(stop.updatedAt);
     } else if (stop.status === DeliveryStopStatus.active) {
-      eta = `In progress - ${formatTime(stop.scheduledTime)}`;
+      eta = `In progress - ${formatTime(stop.updatedAt)}`;
+      time = formatTime(stop.updatedAt);
     }
 
     return {
       stopId: stop.id,
       id: stop.sequence,
-      time: formatTime(stop.scheduledTime),
+      scheduledDate: formatDateOnly(stop.scheduledTime),
+      time,
       outlet: stop.outlet.name,
       area: stop.outlet.area,
       outletPhone: stop.outlet.phone,

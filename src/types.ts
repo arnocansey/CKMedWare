@@ -121,6 +121,7 @@ export type DeliveryStopItem = {
 export type DeliveryStop = {
   stopId: string;
   id: number;
+  scheduledDate: string;
   time: string;
   outlet: string;
   area: string;
