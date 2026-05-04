@@ -399,10 +399,18 @@ export class FileStore implements DataStore {
       .slice(0, 50)
       .map((record, index) => {
         const date = new Date(record.dateValue ? `${record.dateValue}T09:00:00` : record.createdAt);
-        const time = Number.isNaN(date.getTime())
+        const startedAtDate = record.startedAt ? new Date(record.startedAt) : null;
+        const deliveredAtDate = record.deliveredAt ? new Date(record.deliveredAt) : null;
+        const resolvedStatus: DeliveryStop["status"] = record.deliveryStatus ?? (index === 0 ? "active" : "next");
+        const timeSource =
+          resolvedStatus === "done"
+            ? deliveredAtDate ?? startedAtDate ?? date
+            : resolvedStatus === "active"
+              ? startedAtDate ?? date
+              : date;
+        const time = Number.isNaN(timeSource.getTime())
           ? "--:--"
-          : date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-        const status: DeliveryStop["status"] = index === 0 ? "active" : "next";
+          : timeSource.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
         const recordProducts =
           record.products && record.products.length > 0
@@ -428,12 +436,13 @@ export class FileStore implements DataStore {
         return {
           stopId: record.distributionId,
           id: index + 1,
+          scheduledDate: (record.dateValue || record.createdAt.slice(0, 10)),
           time,
           outlet: record.outletName,
           area: "Distribution area",
           outletPhone: record.outletPhone ?? database.distributionDraft.outletPhone ?? null,
           units: record.units,
-          status: record.deliveryStatus ?? status,
+          status: resolvedStatus,
           eta: record.eta || "Scheduled",
           items: recordProducts.map((product) => ({
             productName: product.name,
@@ -466,6 +475,7 @@ export class FileStore implements DataStore {
           : (record.deliveryStatus ?? "next") === "active"
             ? "next"
             : (record.deliveryStatus ?? "next"),
+      startedAt: currentIndex === index ? nowIso() : record.startedAt,
     }));
     this.writeDatabase(database);
     return this.getDeliveries();
@@ -481,6 +491,7 @@ export class FileStore implements DataStore {
     database.submittedDistributions[index] = {
       ...database.submittedDistributions[index],
       deliveryStatus: "done",
+      deliveredAt: nowIso(),
     };
 
     const nextIndex = database.submittedDistributions.findIndex(

@@ -332,6 +332,8 @@ export type SetupProductResponse = {
 
 export type SubmittedDistributionRecord = DistributionCreateResponse & {
   createdAt: string;
+  startedAt?: string;
+  deliveredAt?: string;
   dateValue: string;
   deliveryFee: number;
   deliveryStatus?: DeliveryStopStatus;
