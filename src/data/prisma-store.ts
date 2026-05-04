@@ -53,9 +53,9 @@ function createToken() {
 }
 
 function getSessionTtlDays() {
-  const days = Number(process.env.SESSION_TTL_DAYS ?? 30);
+  const days = Number(process.env.SESSION_TTL_DAYS ?? 90);
   if (!Number.isFinite(days) || days <= 0) {
-    return 30;
+    return 90;
   }
   return Math.floor(days);
 }
