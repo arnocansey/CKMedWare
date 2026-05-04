@@ -112,6 +112,12 @@ export type PurchaseOrderCreateRequest = {
 
 export type DeliveryStopStatus = "done" | "active" | "next";
 
+export type DeliveryStopItem = {
+  productName: string;
+  quantity: number;
+  unitPrice?: number;
+};
+
 export type DeliveryStop = {
   stopId: string;
   id: number;
@@ -122,6 +128,7 @@ export type DeliveryStop = {
   units: number;
   status: DeliveryStopStatus;
   eta: string;
+  items: DeliveryStopItem[];
 };
 
 export type DeliveriesResponse = {

@@ -390,6 +390,11 @@ export class FileStore implements DataStore {
           units: record.units,
           status: record.deliveryStatus ?? status,
           eta: record.eta || "Scheduled",
+          items: (record.products ?? []).map((product) => ({
+            productName: product.name,
+            quantity: product.quantity,
+            unitPrice: product.price,
+          })),
         };
       });
 
@@ -658,11 +663,11 @@ export class FileStore implements DataStore {
   async createDistribution(input: DistributionCreateRequest) {
     const database = this.readDatabase();
     const outletName = input.outletName || database.distributionDraft.outletName;
-    const vehicleName = input.vehicleName || database.distributionDraft.vehicleName;
+    const vehicleName = input.vehicleName || database.distributionDraft.vehicleName || "Unassigned Vehicle";
     const selectedProducts = input.products ?? [];
 
-    if (!outletName || !vehicleName) {
-      throw new Error("Create an outlet, vehicle, and products in the backend before scheduling a distribution.");
+    if (!outletName) {
+      throw new Error("Create an outlet and products in the backend before scheduling a distribution.");
     }
 
     const resolvedProducts = database.distributionDraft.products.map((product) => {

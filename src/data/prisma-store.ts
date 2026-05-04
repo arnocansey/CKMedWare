@@ -284,7 +284,11 @@ type DeliveryStopWithRelations = Prisma.DeliveryStopGetPayload<{
     vehicle: true;
     distribution: {
       include: {
-        items: true;
+        items: {
+          include: {
+            product: true;
+          };
+        };
       };
     };
   };
@@ -490,17 +494,11 @@ export class PrismaStore implements DataStore {
   async getDashboard(user: User): Promise<DashboardResponse> {
     await this.ensureBootstrapUser();
 
-    const weekStart = startOfWeek();
-    const nextWeek = addDays(weekStart, 7);
     const today = new Date();
 
     const [distributions, expiryBatches] = await Promise.all([
       this.prisma.distribution.findMany({
         where: {
-          scheduledFor: {
-            gte: weekStart,
-            lt: nextWeek,
-          },
           status: {
             not: DistributionStatus.cancelled,
           },
@@ -555,7 +553,7 @@ export class PrismaStore implements DataStore {
     return {
       dayLabel: formatLongDate(today),
       snapshotLabel:
-        stats.total > 0 ? "Live distribution snapshot" : "No distributions recorded yet",
+        stats.total > 0 ? "All-time distribution snapshot" : "No distributions recorded yet",
       user,
       stats,
       areaBreakdown,
@@ -865,6 +863,11 @@ export class PrismaStore implements DataStore {
       units,
       status: stop.status,
       eta,
+      items: stop.distribution.items.map((item) => ({
+        productName: item.product.name,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
     };
   }
 
@@ -903,7 +906,11 @@ export class PrismaStore implements DataStore {
         vehicle: true,
         distribution: {
           include: {
-            items: true,
+            items: {
+              include: {
+                product: true,
+              },
+            },
           },
         },
       },
@@ -1473,7 +1480,7 @@ export class PrismaStore implements DataStore {
       throw new Error("Create an outlet in the backend before scheduling a distribution.");
     }
 
-    const vehicle =
+    const selectedVehicle =
       (input.vehicleId
         ? await this.prisma.vehicle.findFirst({
             where: {
@@ -1491,9 +1498,24 @@ export class PrismaStore implements DataStore {
           })
         : null);
 
-    if (!vehicle) {
-      throw new Error("Create a vehicle in the backend before scheduling a distribution.");
-    }
+    const vehicle =
+      selectedVehicle ??
+      (await this.prisma.vehicle.upsert({
+        where: { registrationNumber: "UNASSIGNED-VEHICLE" },
+        update: {
+          isActive: true,
+          name: "Unassigned Vehicle",
+          driverName: "Not assigned",
+          defaultDeliveryFee: 0,
+        },
+        create: {
+          name: "Unassigned Vehicle",
+          registrationNumber: "UNASSIGNED-VEHICLE",
+          driverName: "Not assigned",
+          defaultDeliveryFee: 0,
+          isActive: true,
+        },
+      }));
 
     const products = await this.prisma.product.findMany({
       where: {
