@@ -308,10 +308,33 @@ export class FileStore implements DataStore {
 
   async getDashboard(user: User): Promise<DashboardResponse> {
     const database = this.readDatabase();
+    const records = database.submittedDistributions ?? [];
+    const total = records.reduce((sum, record) => sum + (record.units ?? 0), 0);
+    const areaMap = new Map<string, number>();
+
+    for (const record of records) {
+      const areaKey = record.outletName?.trim() || "Unknown";
+      areaMap.set(areaKey, (areaMap.get(areaKey) ?? 0) + (record.units ?? 0));
+    }
+
+    const areaBreakdown = Array.from(areaMap.entries())
+      .map(([area, units]) => ({ area, units }))
+      .sort((left, right) => right.units - left.units);
+
+    const ashongman =
+      areaBreakdown.find((bucket) => bucket.area.toLowerCase().includes("ashongman"))?.units ?? 0;
+    const nima =
+      areaBreakdown.find((bucket) => bucket.area.toLowerCase().includes("nima"))?.units ?? 0;
 
     return {
       ...database.dashboard,
-      areaBreakdown: database.dashboard.areaBreakdown ?? [],
+      snapshotLabel: total > 0 ? "All-time distribution snapshot" : "No distributions recorded yet",
+      stats: {
+        total,
+        ashongman,
+        nima,
+      },
+      areaBreakdown,
       user,
     };
   }
@@ -361,6 +384,7 @@ export class FileStore implements DataStore {
   async getDeliveries(): Promise<DeliveriesResponse> {
     const database = this.readDatabase();
     const records = database.submittedDistributions ?? [];
+    const historicalOrders = database.orders?.orders ?? [];
 
     if (records.length === 0) {
       return {
@@ -380,6 +404,27 @@ export class FileStore implements DataStore {
           : date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
         const status: DeliveryStop["status"] = index === 0 ? "active" : "next";
 
+        const recordProducts =
+          record.products && record.products.length > 0
+            ? record.products
+            : (
+                historicalOrders.find((order) => {
+                  const sameOutlet = order.outlet?.trim().toLowerCase() === record.outletName?.trim().toLowerCase();
+                  const sameUnits = (order.units ?? 0) === (record.units ?? 0);
+                  const orderDate = order.date ?? "";
+                  const recordDate = record.dateValue ?? record.createdAt.slice(0, 10);
+                  const sameDate = orderDate === recordDate;
+                  return sameOutlet && sameUnits && sameDate && Array.isArray(order.lineItems) && order.lineItems.length > 0;
+                })?.lineItems.map((lineItem) => ({
+                  id: `legacy_${lineItem.drugName}_${lineItem.batchNumber ?? "na"}`,
+                  name: lineItem.drugName,
+                  quantity: lineItem.quantity,
+                  price: lineItem.costPrice,
+                  expiryDate: lineItem.expiryDate,
+                  batchNumber: lineItem.batchNumber,
+                })) ?? []
+              );
+
         return {
           stopId: record.distributionId,
           id: index + 1,
@@ -390,7 +435,7 @@ export class FileStore implements DataStore {
           units: record.units,
           status: record.deliveryStatus ?? status,
           eta: record.eta || "Scheduled",
-          items: (record.products ?? []).map((product) => ({
+          items: recordProducts.map((product) => ({
             productName: product.name,
             quantity: product.quantity,
             unitPrice: product.price,
