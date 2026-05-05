@@ -262,6 +262,10 @@ export function createApp() {
     );
   }));
 
+  app.get("/api/suppliers", asyncHandler(async (_req, res) => {
+    res.json(await store.getSuppliers());
+  }));
+
   app.post("/api/purchase-orders", asyncHandler(async (req, res) => {
     const body = req.body as Partial<PurchaseOrderCreateRequest> | undefined;
 
@@ -355,6 +359,10 @@ export function createApp() {
     );
   }));
 
+  app.get("/api/inventory/activity", asyncHandler(async (_req, res) => {
+    res.json(await store.getInventoryActivity());
+  }));
+
   app.get("/api/exports/inventory.csv", asyncHandler(async (_req, res) => {
     const inventory = await store.getInventory({ page: 1, limit: 1000 });
     const rows = [
@@ -440,6 +448,18 @@ export function createApp() {
       isActive: response.isActive,
     });
     res.json(response);
+  }));
+
+  app.delete("/api/branches/:id", asyncHandler(async (req, res) => {
+    const id = getRouteParam(req.params, "id");
+    if (!id) {
+      res.status(400).json({ message: "Missing branch id" });
+      return;
+    }
+
+    await store.deleteBranch(id);
+    backendEvents.publish("branch.deleted", { id });
+    res.status(204).send();
   }));
 
   app.post("/api/inventory", asyncHandler(async (req, res) => {

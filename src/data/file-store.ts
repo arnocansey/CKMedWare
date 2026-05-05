@@ -15,6 +15,7 @@ import type {
   DistributionCreateResponse,
   DistributionDraftResponse,
   InventoryCreateRequest,
+  InventoryActivityResponse,
   InventoryUpdateRequest,
   InventoryItem,
   InventoryResponse,
@@ -33,6 +34,7 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  SupplierListResponse,
   SubmittedDistributionRecord,
   VehicleListResponse,
   User,
@@ -124,6 +126,16 @@ function parseExpiryDate(value: string) {
   return expiryDate;
 }
 
+function isExpiredDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime();
+}
+
 export class FileStore implements DataStore {
   private readonly filePath: string;
 
@@ -149,6 +161,26 @@ export class FileStore implements DataStore {
 
   private writeDatabase(database: PersistedDatabase) {
     writeFileSync(this.filePath, JSON.stringify(database, null, 2));
+  }
+
+  private normalizeExpiredInventory(database: PersistedDatabase) {
+    if (!database.inventory) {
+      return;
+    }
+
+    const now = nowIso();
+    database.inventory.items = database.inventory.items
+      .map((item) => {
+        if (item.quantity > 0 && isExpiredDate(item.expiryDate)) {
+          return {
+            ...item,
+            quantity: 0,
+            updatedAt: now,
+          };
+        }
+        return item;
+      })
+      .filter((item) => item.quantity > 0);
   }
 
   async authenticate(email: string, password: string) {
@@ -373,6 +405,10 @@ export class FileStore implements DataStore {
     throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
   }
 
+  async getSuppliers(): Promise<SupplierListResponse> {
+    return { suppliers: [] };
+  }
+
   async createPurchaseOrder(_input: PurchaseOrderCreateRequest): Promise<PurchaseOrder> {
     throw new Error("Purchase orders require a PostgreSQL database. Configure DATABASE_URL and redeploy.");
   }
@@ -514,11 +550,54 @@ export class FileStore implements DataStore {
 
   async getInventory(_options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse> {
     const database = this.readDatabase();
+    this.normalizeExpiredInventory(database);
+    this.writeDatabase(database);
     const storedInventory = database.inventory?.items ?? [];
 
     return {
       items: storedInventory.sort((left, right) => left.expiryDate.localeCompare(right.expiryDate)),
     };
+  }
+
+  async getInventoryActivity(): Promise<InventoryActivityResponse> {
+    const database = this.readDatabase();
+    const inventory = database.inventory?.items ?? [];
+    const submitted = database.submittedDistributions ?? [];
+
+    const activities = [
+      ...inventory.map((item) => ({
+        id: `stock_created_${item.id}`,
+        type: "stock_created" as const,
+        drugName: item.drugName,
+        quantity: item.quantity,
+        at: item.createdAt,
+        note: `Batch ${item.batchNumber}`,
+      })),
+      ...inventory
+        .filter((item) => item.updatedAt !== item.createdAt)
+        .map((item) => ({
+          id: `stock_updated_${item.id}_${item.updatedAt}`,
+          type: "stock_updated" as const,
+          drugName: item.drugName,
+          quantity: item.quantity,
+          at: item.updatedAt,
+          note: `Batch ${item.batchNumber}`,
+        })),
+      ...submitted.flatMap((record) =>
+        record.products.map((product) => ({
+          id: `distribution_out_${record.distributionId}_${product.id}`,
+          type: "distribution_out" as const,
+          drugName: product.name,
+          quantity: product.quantity,
+          at: record.createdAt,
+          note: `${record.outletName} (${record.distributionId})`,
+        })),
+      ),
+    ]
+      .sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime())
+      .slice(0, 100);
+
+    return { activities };
   }
 
   async listBranches(): Promise<BranchListResponse> {
@@ -591,6 +670,23 @@ export class FileStore implements DataStore {
       phone: database.distributionDraft.outletPhone ?? null,
       isActive: input.isActive ?? true,
     };
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    const database = this.readDatabase();
+
+    if (!database.distributionDraft.outletId || database.distributionDraft.outletId !== id) {
+      throw new Error("Branch not found.");
+    }
+
+    if ((database.submittedDistributions ?? []).length > 0) {
+      throw new Error("Cannot delete this branch because it has delivery history.");
+    }
+
+    database.distributionDraft.outletId = null;
+    database.distributionDraft.outletName = "";
+    database.distributionDraft.outletPhone = null;
+    this.writeDatabase(database);
   }
 
   async createInventoryItem(input: InventoryCreateRequest): Promise<InventoryItem> {
@@ -702,6 +798,8 @@ export class FileStore implements DataStore {
 
   async getDistributionDraft(): Promise<DistributionDraftResponse> {
     const database = this.readDatabase();
+    this.normalizeExpiredInventory(database);
+    this.writeDatabase(database);
     const stockedNames = new Set(
       (database.inventory?.items ?? [])
         .filter((item) => item.quantity > 0)
@@ -718,6 +816,7 @@ export class FileStore implements DataStore {
 
   async createDistribution(input: DistributionCreateRequest) {
     const database = this.readDatabase();
+    this.normalizeExpiredInventory(database);
     const outletName = input.outletName || database.distributionDraft.outletName;
     const vehicleName = input.vehicleName || database.distributionDraft.vehicleName || "Unassigned Vehicle";
     const selectedProducts = input.products ?? [];

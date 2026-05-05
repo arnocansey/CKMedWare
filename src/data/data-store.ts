@@ -6,6 +6,7 @@ import type {
   DistributionCreateRequest,
   DistributionCreateResponse,
   InventoryCreateRequest,
+  InventoryActivityResponse,
   InventoryUpdateRequest,
   InventoryResponse,
   LoginResponse,
@@ -21,6 +22,7 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  SupplierListResponse,
   VehicleListResponse,
   User,
 } from "../types.js";
@@ -34,6 +36,7 @@ export interface DataStore {
   getDashboard(user: User): Promise<DashboardResponse>;
   getOrders(): Promise<OrdersResponse>;
   getPurchaseOrders(options?: { q?: string; page?: number; limit?: number }): Promise<PurchaseOrdersResponse>;
+  getSuppliers(): Promise<SupplierListResponse>;
   createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder>;
   receivePurchaseOrder(id: string): Promise<PurchaseOrder>;
   getDeliveries(): Promise<DeliveriesResponse>;
@@ -41,9 +44,11 @@ export interface DataStore {
   completeDeliveryStop(id: string): Promise<DeliveriesResponse>;
   getReports(): Promise<ReportsResponse>;
   getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse>;
+  getInventoryActivity(): Promise<InventoryActivityResponse>;
   listBranches(): Promise<BranchListResponse>;
   listVehicles(): Promise<VehicleListResponse>;
   updateBranch(id: string, input: BranchUpdateRequest): Promise<import("../types.js").Branch>;
+  deleteBranch(id: string): Promise<void>;
   getDistributionDraft(): Promise<import("../types.js").DistributionDraftResponse>;
   createDistribution(input: DistributionCreateRequest): Promise<DistributionCreateResponse>;
   createInventoryItem(input: InventoryCreateRequest): Promise<import("../types.js").InventoryItem>;

@@ -100,6 +100,10 @@ export type PurchaseOrdersResponse = {
   orders: PurchaseOrder[];
 };
 
+export type SupplierListResponse = {
+  suppliers: string[];
+};
+
 export type PurchaseOrderCreateRequest = {
   supplierName: string;
   items: Array<{
@@ -178,6 +182,26 @@ export type InventoryItem = {
 
 export type InventoryResponse = {
   items: InventoryItem[];
+};
+
+export type InventoryActivityType =
+  | "stock_in"
+  | "distribution_out"
+  | "stock_created"
+  | "stock_updated"
+  | "stock_deleted";
+
+export type InventoryActivityItem = {
+  id: string;
+  type: InventoryActivityType;
+  drugName: string;
+  quantity: number;
+  at: string;
+  note?: string;
+};
+
+export type InventoryActivityResponse = {
+  activities: InventoryActivityItem[];
 };
 
 export type InventoryCreateRequest = {

@@ -23,6 +23,7 @@ import type {
   DistributionDraftResponse,
   ExpiryItem,
   InventoryCreateRequest,
+  InventoryActivityResponse,
   InventoryUpdateRequest,
   InventoryItem,
   InventoryResponse,
@@ -40,6 +41,7 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  SupplierListResponse,
   VehicleListResponse,
   User,
 } from "../types.js";
@@ -314,6 +316,18 @@ export class PrismaStore implements DataStore {
 
   private get prisma() {
     return getPrismaClient();
+  }
+
+  private async applyExpiredStockAdjustments() {
+    await this.prisma.stockBatch.updateMany({
+      where: {
+        unitsRemaining: { gt: 0 },
+        expiresAt: { lt: startOfDay() },
+      },
+      data: {
+        unitsRemaining: 0,
+      },
+    });
   }
 
   private async ensureBootstrapUser() {
@@ -679,6 +693,21 @@ export class PrismaStore implements DataStore {
           })),
         };
       }),
+    };
+  }
+
+  async getSuppliers(): Promise<SupplierListResponse> {
+    await this.ensureBootstrapUser();
+
+    const suppliers = await this.prisma.purchaseOrder.findMany({
+      distinct: ["supplierName"],
+      select: { supplierName: true },
+      orderBy: { supplierName: "asc" },
+      take: 200,
+    });
+
+    return {
+      suppliers: suppliers.map((entry) => entry.supplierName).filter(Boolean),
     };
   }
 
@@ -1139,6 +1168,7 @@ export class PrismaStore implements DataStore {
 
   async getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse> {
     await this.ensureBootstrapUser();
+    await this.applyExpiredStockAdjustments();
     const q = options?.q?.trim();
     const page = Math.max(1, Math.floor(options?.page ?? 1));
     const limit = Math.min(200, Math.max(1, Math.floor(options?.limit ?? 200)));
@@ -1178,6 +1208,97 @@ export class PrismaStore implements DataStore {
         updatedAt: batch.updatedAt.toISOString(),
       })),
     };
+  }
+
+  async getInventoryActivity(): Promise<InventoryActivityResponse> {
+    await this.ensureBootstrapUser();
+
+    const [distributions, purchaseOrders, createdBatches, updatedBatches] = await Promise.all([
+      this.prisma.distribution.findMany({
+        where: {
+          status: {
+            in: [DistributionStatus.processing, DistributionStatus.delivered],
+          },
+        },
+        include: {
+          outlet: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+      }),
+      this.prisma.purchaseOrder.findMany({
+        where: { status: PurchaseOrderStatus.received },
+        include: { items: true },
+        orderBy: { updatedAt: "desc" },
+        take: 40,
+      }),
+      this.prisma.stockBatch.findMany({
+        include: { product: true },
+        orderBy: { createdAt: "desc" },
+        take: 40,
+      }),
+      this.prisma.stockBatch.findMany({
+        where: {
+          updatedAt: {
+            gt: new Date(0),
+          },
+        },
+        include: { product: true },
+        orderBy: { updatedAt: "desc" },
+        take: 40,
+      }),
+    ]);
+
+    const createdBatchIds = new Set(createdBatches.map((batch) => batch.id));
+    const activities = [
+      ...distributions.flatMap((distribution) =>
+        distribution.items.map((item) => ({
+          id: `dist_${distribution.id}_${item.id}`,
+          type: "distribution_out" as const,
+          drugName: item.product.name,
+          quantity: item.quantity,
+          at: distribution.createdAt.toISOString(),
+          note: `${distribution.outlet.name} (${distribution.orderNumber})`,
+        })),
+      ),
+      ...purchaseOrders.flatMap((order) =>
+        order.items.map((item) => ({
+          id: `po_${order.id}_${item.id}`,
+          type: "stock_in" as const,
+          drugName: item.drugName,
+          quantity: item.quantity,
+          at: (order.receivedAt ?? order.updatedAt).toISOString(),
+          note: `${order.supplierName} (${order.orderNumber})`,
+        })),
+      ),
+      ...createdBatches.map((batch) => ({
+        id: `batch_created_${batch.id}`,
+        type: "stock_created" as const,
+        drugName: batch.product.name,
+        quantity: batch.unitsRemaining,
+        at: batch.createdAt.toISOString(),
+        note: `Batch ${batch.batchNumber}`,
+      })),
+      ...updatedBatches
+        .filter((batch) => !createdBatchIds.has(batch.id) && batch.updatedAt.getTime() > batch.createdAt.getTime())
+        .map((batch) => ({
+          id: `batch_updated_${batch.id}_${batch.updatedAt.getTime()}`,
+          type: "stock_updated" as const,
+          drugName: batch.product.name,
+          quantity: batch.unitsRemaining,
+          at: batch.updatedAt.toISOString(),
+          note: `Batch ${batch.batchNumber}`,
+        })),
+    ]
+      .sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime())
+      .slice(0, 100);
+
+    return { activities };
   }
 
   async listBranches(): Promise<BranchListResponse> {
@@ -1264,6 +1385,28 @@ export class PrismaStore implements DataStore {
       phone: outlet.phone,
       isActive: outlet.isActive,
     };
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    await this.ensureBootstrapUser();
+
+    const existing = await this.prisma.outlet.findFirst({ where: { id } });
+
+    if (!existing) {
+      throw new Error("Branch not found.");
+    }
+
+    const [batchCount, distributionCount, stopCount] = await Promise.all([
+      this.prisma.stockBatch.count({ where: { outletId: id } }),
+      this.prisma.distribution.count({ where: { outletId: id } }),
+      this.prisma.deliveryStop.count({ where: { outletId: id } }),
+    ]);
+
+    if (batchCount > 0 || distributionCount > 0 || stopCount > 0) {
+      throw new Error("Cannot delete this branch because it has inventory or delivery history.");
+    }
+
+    await this.prisma.outlet.delete({ where: { id } });
   }
 
   async createInventoryItem(input: InventoryCreateRequest): Promise<InventoryItem> {
@@ -1401,6 +1544,7 @@ export class PrismaStore implements DataStore {
 
   async getDistributionDraft(): Promise<DistributionDraftResponse> {
     await this.ensureBootstrapUser();
+    await this.applyExpiredStockAdjustments();
 
     const [outlet, vehicle, products] = await Promise.all([
       this.prisma.outlet.findFirst({
@@ -1450,6 +1594,7 @@ export class PrismaStore implements DataStore {
 
   async createDistribution(input: DistributionCreateRequest) {
     await this.ensureBootstrapUser();
+    await this.applyExpiredStockAdjustments();
 
     const selectedProducts = (input.products ?? [])
       .map((product) => ({
