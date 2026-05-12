@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "pnpm prisma:generate && tsc -p tsconfig.json",
-    "start": "pnpm prisma:migrate:deploy && node dist/src/server.js",
+    "start": "node dist/src/server.js",
+    "start:migrate": "pnpm prisma:migrate:deploy && node dist/src/server.js",
     "typecheck": "pnpm prisma:generate && tsc --noEmit",
     "postinstall": "pnpm prisma:generate",
     "prisma:generate": "prisma generate",

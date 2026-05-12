@@ -14,6 +14,7 @@ import type {
   DistributionCreateRequest,
   DistributionCreateResponse,
   DistributionDraftResponse,
+  ExpiryItem,
   InventoryCreateRequest,
   InventoryActivityResponse,
   InventoryUpdateRequest,
@@ -39,6 +40,8 @@ import type {
   VehicleListResponse,
   User,
 } from "../types.js";
+
+const EXPIRY_WATCHLIST_DAYS = 180;
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
@@ -134,6 +137,28 @@ function isExpiredDate(value: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return date.getTime() < today.getTime();
+}
+
+function daysUntilExpiry(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((date.getTime() - today.getTime()) / 86400000);
+}
+
+function determineSeverity(days: number): ExpiryItem["severity"] {
+  if (days <= 14) {
+    return "urgent";
+  }
+
+  if (days <= 45) {
+    return "warn";
+  }
+
+  return "soft";
 }
 
 export class FileStore implements DataStore {
@@ -340,9 +365,32 @@ export class FileStore implements DataStore {
 
   async getDashboard(user: User): Promise<DashboardResponse> {
     const database = this.readDatabase();
+    this.normalizeExpiredInventory(database);
+    this.writeDatabase(database);
     const records = database.submittedDistributions ?? [];
     const total = records.reduce((sum, record) => sum + (record.units ?? 0), 0);
     const areaMap = new Map<string, number>();
+    const expiryWatchlist = (database.inventory?.items ?? [])
+      .map((item) => ({
+        item,
+        days: daysUntilExpiry(item.expiryDate),
+      }))
+      .filter(
+        (entry): entry is { item: InventoryItem; days: number } =>
+          entry.days !== null &&
+          entry.days >= 0 &&
+          entry.days <= EXPIRY_WATCHLIST_DAYS &&
+          entry.item.quantity > 0,
+      )
+      .sort((left, right) => left.days - right.days)
+      .slice(0, 5)
+      .map(({ item, days }) => ({
+        name: item.drugName,
+        batch: item.batchNumber,
+        days,
+        units: item.quantity,
+        severity: determineSeverity(days),
+      }));
 
     for (const record of records) {
       const areaKey = record.outletName?.trim() || "Unknown";
@@ -367,6 +415,7 @@ export class FileStore implements DataStore {
         nima,
       },
       areaBreakdown,
+      expiryWatchlist,
       user,
     };
   }

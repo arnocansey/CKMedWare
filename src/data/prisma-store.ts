@@ -46,6 +46,8 @@ import type {
   User,
 } from "../types.js";
 
+const EXPIRY_WATCHLIST_DAYS = 180;
+
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
 }
@@ -527,7 +529,7 @@ export class PrismaStore implements DataStore {
           unitsRemaining: { gt: 0 },
           expiresAt: {
             gte: startOfDay(today),
-            lte: addDays(startOfDay(today), 90),
+            lte: addDays(startOfDay(today), EXPIRY_WATCHLIST_DAYS),
           },
         },
         include: {
