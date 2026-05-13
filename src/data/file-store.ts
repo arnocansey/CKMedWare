@@ -35,6 +35,8 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  Supplier,
+  SupplierCreateRequest,
   SupplierListResponse,
   SubmittedDistributionRecord,
   VehicleListResponse,
@@ -69,9 +71,7 @@ function formatCurrency(value: number) {
 
 function formatCreatedTime() {
   const now = new Date();
-  const hours = now.getHours().toString().padStart(2, "0");
-  const minutes = now.getMinutes().toString().padStart(2, "0");
-  return `Today - ${hours}:${minutes}`;
+  return `Today - ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
 }
 
 function createOrderId(existingCount: number) {
@@ -217,13 +217,11 @@ export class FileStore implements DataStore {
     }
 
     const token = createToken();
-    database.sessions = database.sessions
-      .filter((entry) => entry.userId !== user.id)
-      .concat({
-        token,
-        userId: user.id,
-        createdAt: nowIso(),
-      });
+    database.sessions = database.sessions.concat({
+      token,
+      userId: user.id,
+      createdAt: nowIso(),
+    });
     this.writeDatabase(database);
 
     const result: LoginResponse = {
@@ -269,13 +267,11 @@ export class FileStore implements DataStore {
     const token = createToken();
 
     database.users.push(user);
-    database.sessions = database.sessions
-      .filter((entry) => entry.userId !== user.id)
-      .concat({
-        token,
-        userId: user.id,
-        createdAt: nowIso(),
-      });
+    database.sessions = database.sessions.concat({
+      token,
+      userId: user.id,
+      createdAt: nowIso(),
+    });
     this.writeDatabase(database);
 
     const result: LoginResponse = {
@@ -455,7 +451,73 @@ export class FileStore implements DataStore {
   }
 
   async getSuppliers(): Promise<SupplierListResponse> {
-    return { suppliers: [] };
+    const database = this.readDatabase();
+    const supplierRecords = [...(database.suppliers ?? [])]
+      .filter((supplier) => supplier.isActive)
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    return {
+      suppliers: supplierRecords.map((supplier) => supplier.name),
+      supplierRecords,
+    };
+  }
+
+  async createSupplier(input: SupplierCreateRequest): Promise<Supplier> {
+    const database = this.readDatabase();
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const phone = input.phone?.trim() || null;
+    const email = input.email?.trim().toLowerCase() || null;
+
+    if (!name) {
+      throw new Error("Supplier name is required.");
+    }
+
+    const now = nowIso();
+    database.suppliers ??= [];
+    const existingIndex = database.suppliers.findIndex(
+      (supplier) => supplier.name.toLowerCase() === name.toLowerCase(),
+    );
+
+    if (existingIndex >= 0) {
+      database.suppliers[existingIndex] = {
+        ...database.suppliers[existingIndex],
+        name,
+        phone,
+        email,
+        isActive: true,
+        updatedAt: now,
+      };
+      this.writeDatabase(database);
+      return database.suppliers[existingIndex];
+    }
+
+    const supplier: Supplier = {
+      id: `sup_${randomUUID()}`,
+      name,
+      phone,
+      email,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    database.suppliers.push(supplier);
+    this.writeDatabase(database);
+    return supplier;
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    const database = this.readDatabase();
+    const suppliers = database.suppliers ?? [];
+    const index = suppliers.findIndex((supplier) => supplier.id === id);
+
+    if (index < 0) {
+      throw new Error("Supplier not found.");
+    }
+
+    suppliers.splice(index, 1);
+    database.suppliers = suppliers;
+    this.writeDatabase(database);
   }
 
   async createPurchaseOrder(_input: PurchaseOrderCreateRequest): Promise<PurchaseOrder> {
@@ -495,7 +557,7 @@ export class FileStore implements DataStore {
               : date;
         const time = Number.isNaN(timeSource.getTime())
           ? "--:--"
-          : timeSource.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          : timeSource.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
         const recordProducts =
           record.products && record.products.length > 0
@@ -526,6 +588,7 @@ export class FileStore implements DataStore {
           outlet: record.outletName,
           area: "Distribution area",
           outletPhone: record.outletPhone ?? database.distributionDraft.outletPhone ?? null,
+          receiverName: record.signature ?? null,
           units: record.units,
           status: resolvedStatus,
           eta: record.eta || "Scheduled",

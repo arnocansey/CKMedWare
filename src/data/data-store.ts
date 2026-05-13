@@ -22,6 +22,8 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  Supplier,
+  SupplierCreateRequest,
   SupplierListResponse,
   VehicleListResponse,
   User,
@@ -37,6 +39,8 @@ export interface DataStore {
   getOrders(): Promise<OrdersResponse>;
   getPurchaseOrders(options?: { q?: string; page?: number; limit?: number }): Promise<PurchaseOrdersResponse>;
   getSuppliers(): Promise<SupplierListResponse>;
+  createSupplier(input: SupplierCreateRequest): Promise<Supplier>;
+  deleteSupplier(id: string): Promise<void>;
   createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder>;
   receivePurchaseOrder(id: string): Promise<PurchaseOrder>;
   getDeliveries(): Promise<DeliveriesResponse>;

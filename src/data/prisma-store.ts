@@ -41,6 +41,8 @@ import type {
   SetupVehicleRequest,
   SetupVehicleResponse,
   SignupRequest,
+  Supplier,
+  SupplierCreateRequest,
   SupplierListResponse,
   VehicleListResponse,
   User,
@@ -110,9 +112,10 @@ function formatDateOnly(value: Date) {
 }
 
 function formatTime(value: Date) {
-  return value.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
+  return value.toLocaleTimeString("en-US", {
+    hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -376,10 +379,6 @@ export class PrismaStore implements DataStore {
     if (!user || user.passwordHash !== hashPassword(password)) {
       return null;
     }
-
-    await this.prisma.session.deleteMany({
-      where: { userId: user.id },
-    });
 
     const token = createToken();
     await this.prisma.session.create({
@@ -684,6 +683,7 @@ export class PrismaStore implements DataStore {
           total: formatCurrency(totalValue),
           totalValue,
           date: formatDateOnly(order.createdAt),
+          receivedAt: order.receivedAt?.toISOString() ?? null,
           createdAt: order.createdAt.toISOString(),
           updatedAt: order.updatedAt.toISOString(),
           lineItems: order.items.map((item: typeof order.items[number]) => ({
@@ -701,16 +701,72 @@ export class PrismaStore implements DataStore {
   async getSuppliers(): Promise<SupplierListResponse> {
     await this.ensureBootstrapUser();
 
-    const suppliers = await this.prisma.purchaseOrder.findMany({
-      distinct: ["supplierName"],
-      select: { supplierName: true },
-      orderBy: { supplierName: "asc" },
-      take: 200,
+    const [supplierRecords, legacySuppliers] = await Promise.all([
+      this.prisma.supplier.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        take: 200,
+      }),
+      this.prisma.purchaseOrder.findMany({
+        distinct: ["supplierName"],
+        select: { supplierName: true },
+        orderBy: { supplierName: "asc" },
+        take: 200,
+      }),
+    ]);
+
+    const suppliers = Array.from(
+      new Set([
+        ...supplierRecords.map((entry) => entry.name).filter(Boolean),
+        ...legacySuppliers.map((entry) => entry.supplierName).filter(Boolean),
+      ]),
+    ).sort((left, right) => left.localeCompare(right));
+
+    return {
+      suppliers,
+      supplierRecords: supplierRecords.map((entry): Supplier => ({
+        id: entry.id,
+        name: entry.name,
+        phone: entry.phone,
+        email: entry.email,
+        isActive: entry.isActive,
+        createdAt: entry.createdAt.toISOString(),
+        updatedAt: entry.updatedAt.toISOString(),
+      })),
+    };
+  }
+
+  async createSupplier(input: SupplierCreateRequest): Promise<Supplier> {
+    await this.ensureBootstrapUser();
+
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const phone = input.phone?.trim() || null;
+    const email = input.email?.trim().toLowerCase() || null;
+
+    if (!name) {
+      throw new Error("Supplier name is required.");
+    }
+
+    const supplier = await this.prisma.supplier.upsert({
+      where: { name },
+      update: { phone, email, isActive: true },
+      create: { name, phone, email },
     });
 
     return {
-      suppliers: suppliers.map((entry) => entry.supplierName).filter(Boolean),
+      id: supplier.id,
+      name: supplier.name,
+      phone: supplier.phone,
+      email: supplier.email,
+      isActive: supplier.isActive,
+      createdAt: supplier.createdAt.toISOString(),
+      updatedAt: supplier.updatedAt.toISOString(),
     };
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    await this.ensureBootstrapUser();
+    await this.prisma.supplier.delete({ where: { id } });
   }
 
   async createPurchaseOrder(input: PurchaseOrderCreateRequest): Promise<PurchaseOrder> {
@@ -756,6 +812,12 @@ export class PrismaStore implements DataStore {
       include: { items: true },
     });
 
+    await this.prisma.supplier.upsert({
+      where: { name: supplierName },
+      update: { isActive: true },
+      create: { name: supplierName },
+    });
+
     const totalValue = order.items.reduce((sum: number, item: typeof order.items[number]) => sum + item.quantity * item.costPrice, 0);
 
     return {
@@ -768,6 +830,7 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(order.createdAt),
+      receivedAt: null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       lineItems: order.items.map((item: typeof order.items[number]) => ({
@@ -862,6 +925,7 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(updated.createdAt),
+      receivedAt: updated.receivedAt?.toISOString() ?? null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
       lineItems: updated.items.map((item: typeof updated.items[number]) => ({
@@ -895,6 +959,7 @@ export class PrismaStore implements DataStore {
       outlet: stop.outlet.name,
       area: stop.outlet.area,
       outletPhone: stop.outlet.phone,
+      receiverName: stop.distribution.signature,
       units,
       status: stop.status,
       eta,

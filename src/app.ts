@@ -15,6 +15,7 @@ import type {
   SetupProductRequest,
   SetupVehicleRequest,
   SignupRequest,
+  SupplierCreateRequest,
   User,
 } from "./types.js";
 
@@ -264,6 +265,37 @@ export function createApp() {
 
   app.get("/api/suppliers", asyncHandler(async (_req, res) => {
     res.json(await store.getSuppliers());
+  }));
+
+  app.post("/api/suppliers", asyncHandler(async (req, res) => {
+    const body = req.body as Partial<SupplierCreateRequest> | undefined;
+    const name = body?.name?.trim() ?? "";
+
+    if (!name) {
+      res.status(400).json({ message: "Supplier name is required." });
+      return;
+    }
+
+    const response = await store.createSupplier({
+      name,
+      phone: body?.phone,
+      email: body?.email,
+    });
+
+    backendEvents.publish("supplier.created", { id: response.id, name: response.name });
+    res.status(201).json(response);
+  }));
+
+  app.delete("/api/suppliers/:id", asyncHandler(async (req, res) => {
+    const id = getRouteParam(req.params, "id");
+    if (!id) {
+      res.status(400).json({ message: "Missing supplier id" });
+      return;
+    }
+
+    await store.deleteSupplier(id);
+    backendEvents.publish("supplier.deleted", { id });
+    res.status(204).send();
   }));
 
   app.post("/api/purchase-orders", asyncHandler(async (req, res) => {

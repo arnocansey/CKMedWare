@@ -77,6 +77,7 @@ export function createSeedDatabase(): PersistedDatabase {
       products: [],
     },
     submittedDistributions: [],
+    suppliers: [],
   };
 }
 

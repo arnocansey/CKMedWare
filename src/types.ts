@@ -90,6 +90,7 @@ export type PurchaseOrder = {
   total: string;
   totalValue: number;
   date: string;
+  receivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   lineItems: PurchaseOrderLineItem[];
@@ -102,6 +103,23 @@ export type PurchaseOrdersResponse = {
 
 export type SupplierListResponse = {
   suppliers: string[];
+  supplierRecords?: Supplier[];
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SupplierCreateRequest = {
+  name: string;
+  phone?: string;
+  email?: string;
 };
 
 export type PurchaseOrderCreateRequest = {
@@ -130,6 +148,7 @@ export type DeliveryStop = {
   outlet: string;
   area: string;
   outletPhone?: string | null;
+  receiverName?: string | null;
   units: number;
   status: DeliveryStopStatus;
   eta: string;
@@ -384,4 +403,5 @@ export type PersistedDatabase = {
   inventory?: InventoryResponse;
   distributionDraft: DistributionDraftResponse;
   submittedDistributions: SubmittedDistributionRecord[];
+  suppliers?: Supplier[];
 };

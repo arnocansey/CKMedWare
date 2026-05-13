@@ -58,6 +58,11 @@ export type PurchaseOrder = Prisma.PurchaseOrderModel
  */
 export type PurchaseOrderItem = Prisma.PurchaseOrderItemModel
 /**
+ * Model Supplier
+ * 
+ */
+export type Supplier = Prisma.SupplierModel
+/**
  * Model Distribution
  * 
  */
