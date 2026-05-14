@@ -50,6 +50,7 @@ import type {
 } from "../types.js";
 
 const EXPIRY_WATCHLIST_DAYS = 180;
+const MAIN_WAREHOUSE_NAME = "Main Pharmacy Store";
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
@@ -564,7 +565,7 @@ export class PrismaStore implements DataStore {
         INNER JOIN "Outlet" o ON o."id" = d."outletId"
         LEFT JOIN "DistributionItem" i ON i."distributionId" = d."id"
         WHERE d."status" <> ${DistributionStatus.cancelled}
-        GROUP BY area
+        GROUP BY COALESCE(NULLIF(TRIM(o."area"), ''), NULLIF(TRIM(o."name"), ''), 'Unknown')
         ORDER BY units DESC
       `,
       this.prisma.stockBatch.findMany({
@@ -1656,7 +1657,10 @@ export class PrismaStore implements DataStore {
 
     const [outlet, vehicle, products] = await Promise.all([
       this.prisma.outlet.findFirst({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          name: { not: MAIN_WAREHOUSE_NAME },
+        },
         orderBy: { name: "asc" },
       }),
       this.prisma.vehicle.findFirst({
@@ -1721,6 +1725,7 @@ export class PrismaStore implements DataStore {
             where: {
               id: input.outletId,
               isActive: true,
+              name: { not: MAIN_WAREHOUSE_NAME },
             },
           })
         : null) ??
@@ -1729,6 +1734,7 @@ export class PrismaStore implements DataStore {
             where: {
               name: input.outletName,
               isActive: true,
+              NOT: { name: MAIN_WAREHOUSE_NAME },
             },
           })
         : null);
