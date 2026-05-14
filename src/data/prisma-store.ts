@@ -267,12 +267,10 @@ function isAreaMatch(value: string, needle: string) {
   return value.toLowerCase().includes(needle.toLowerCase());
 }
 
-type DashboardDistribution = Prisma.DistributionGetPayload<{
-  include: {
-    outlet: true;
-    items: true;
-  };
-}>;
+type DashboardAreaRow = {
+  area: string;
+  units: number;
+};
 
 type DistributionWithRelations = Prisma.DistributionGetPayload<{
   include: {
@@ -557,18 +555,18 @@ export class PrismaStore implements DataStore {
 
     const today = new Date();
 
-    const [distributions, expiryBatches] = await Promise.all([
-      this.prisma.distribution.findMany({
-        where: {
-          status: {
-            not: DistributionStatus.cancelled,
-          },
-        },
-        include: {
-          outlet: true,
-          items: true,
-        },
-      }),
+    const [areaRows, expiryBatches] = await Promise.all([
+      this.prisma.$queryRaw<DashboardAreaRow[]>`
+        SELECT
+          COALESCE(NULLIF(TRIM(o."area"), ''), NULLIF(TRIM(o."name"), ''), 'Unknown') AS area,
+          COALESCE(SUM(i."quantity"), 0)::int AS units
+        FROM "Distribution" d
+        INNER JOIN "Outlet" o ON o."id" = d."outletId"
+        LEFT JOIN "DistributionItem" i ON i."distributionId" = d."id"
+        WHERE d."status" <> ${DistributionStatus.cancelled}
+        GROUP BY area
+        ORDER BY units DESC
+      `,
       this.prisma.stockBatch.findMany({
         where: {
           unitsRemaining: { gt: 0 },
@@ -587,18 +585,11 @@ export class PrismaStore implements DataStore {
       }),
     ]);
 
-    const areaMap = new Map<string, number>();
-    let totalUnits = 0;
-    for (const distribution of distributions) {
-      const units = sumUnits(distribution.items);
-      totalUnits += units;
-      const areaKey = distribution.outlet.area?.trim() || distribution.outlet.name.trim() || "Unknown";
-      areaMap.set(areaKey, (areaMap.get(areaKey) ?? 0) + units);
-    }
-
-    const areaBreakdown = Array.from(areaMap.entries())
-      .map(([area, units]) => ({ area, units }))
-      .sort((left, right) => right.units - left.units);
+    const areaBreakdown = areaRows.map((row) => ({
+      area: row.area,
+      units: Number(row.units),
+    }));
+    const totalUnits = areaBreakdown.reduce((sum, bucket) => sum + bucket.units, 0);
 
     const ashongmanUnits =
       areaBreakdown.find((bucket) => isAreaMatch(bucket.area, "ashongman"))?.units ?? 0;
