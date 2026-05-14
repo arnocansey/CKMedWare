@@ -835,10 +835,6 @@ export class FileStore implements DataStore {
       throw new Error("Branch not found.");
     }
 
-    if ((database.submittedDistributions ?? []).length > 0) {
-      throw new Error("Cannot delete this branch because it has delivery history.");
-    }
-
     database.distributionDraft.outletId = null;
     database.distributionDraft.outletName = "";
     database.distributionDraft.outletPhone = null;

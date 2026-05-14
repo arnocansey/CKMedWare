@@ -1516,7 +1516,11 @@ export class PrismaStore implements DataStore {
     ]);
 
     if (batchCount > 0 || distributionCount > 0 || stopCount > 0) {
-      throw new Error("Cannot delete this branch because it has inventory or delivery history.");
+      await this.prisma.outlet.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      return;
     }
 
     await this.prisma.outlet.delete({ where: { id } });
