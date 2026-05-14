@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { OAuth2Client } from "google-auth-library";
 import { randomUUID } from "node:crypto";
 import { backendEvents, type BackendEvent } from "./lib/events.js";
 
@@ -7,6 +8,7 @@ import { store } from "./data/store.js";
 import type {
   BranchUpdateRequest,
   DistributionCreateRequest,
+  GoogleLoginRequest,
   InventoryCreateRequest,
   InventoryUpdateRequest,
   LoginRequest,
@@ -18,6 +20,8 @@ import type {
   SupplierCreateRequest,
   User,
 } from "./types.js";
+
+const googleOAuthClient = new OAuth2Client();
 
 type AsyncRouteHandler = (
   req: express.Request,
@@ -84,8 +88,42 @@ function isIsoDateOnly(value: unknown) {
   return !Number.isNaN(date.getTime());
 }
 
+function isPublicPath(path: string) {
+  return (
+    path === "/health" ||
+    path === "/api/auth/login" ||
+    path === "/api/auth/signup" ||
+    path === "/api/auth/google"
+  );
+}
+
+async function verifyGoogleIdToken(idToken: string) {
+  const audience = process.env.GOOGLE_WEB_CLIENT_ID?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!audience || audience.length === 0) {
+    throw new Error("GOOGLE_WEB_CLIENT_ID is not configured on the backend.");
+  }
+
+  const ticket = await googleOAuthClient.verifyIdToken({
+    idToken,
+    audience,
+  });
+  const payload = ticket.getPayload();
+
+  if (!payload?.email || !payload.email_verified) {
+    throw new Error("Google account email could not be verified.");
+  }
+
+  return {
+    email: payload.email,
+    name: payload.name || payload.email.split("@")[0] || "CKMedWare User",
+  };
+}
+
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (req.path === "/health" || req.path === "/api/auth/login" || req.path === "/api/auth/signup") {
+  if (isPublicPath(req.path)) {
     next();
     return;
   }
@@ -183,6 +221,20 @@ export function createApp() {
     });
 
     res.status(201).json(response);
+  }));
+
+  app.post("/api/auth/google", asyncHandler(async (req, res) => {
+    const body = req.body as Partial<GoogleLoginRequest> | undefined;
+    const idToken = body?.idToken?.trim() ?? "";
+
+    if (!idToken) {
+      res.status(400).json({ message: "Google ID token is required." });
+      return;
+    }
+
+    const profile = await verifyGoogleIdToken(idToken);
+    const response = await store.authenticateGoogle(profile);
+    res.json(response);
   }));
 
   app.post("/api/auth/refresh", asyncHandler(async (_req, res) => {

@@ -15,6 +15,7 @@ import type {
   DistributionCreateResponse,
   DistributionDraftResponse,
   ExpiryItem,
+  GoogleAuthProfile,
   InventoryCreateRequest,
   InventoryActivityResponse,
   InventoryUpdateRequest,
@@ -235,6 +236,49 @@ export class FileStore implements DataStore {
     };
 
     return result;
+  }
+
+  async authenticateGoogle(profile: GoogleAuthProfile): Promise<LoginResponse> {
+    const database = this.readDatabase();
+    const email = profile.email.trim().toLowerCase();
+    const name = profile.name.trim() || email.split("@")[0] || "CKMedWare User";
+
+    if (!email) {
+      throw new Error("Google account email is required.");
+    }
+
+    let user = database.users.find((entry) => entry.email.toLowerCase() === email);
+
+    if (!user) {
+      user = {
+        id: `usr_${randomUUID()}`,
+        name,
+        email,
+        role: database.users.length === 0 ? "admin" as const : "dispatcher" as const,
+        passwordHash: hashPassword(randomUUID()),
+      };
+      database.users.push(user);
+    } else if (user.name !== name) {
+      user.name = name;
+    }
+
+    const token = createToken();
+    database.sessions = database.sessions.concat({
+      token,
+      userId: user.id,
+      createdAt: nowIso(),
+    });
+    this.writeDatabase(database);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 
   async signup(input: SignupRequest) {

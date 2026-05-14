@@ -22,6 +22,7 @@ import type {
   DistributionCreateResponse,
   DistributionDraftResponse,
   ExpiryItem,
+  GoogleAuthProfile,
   InventoryCreateRequest,
   InventoryActivityResponse,
   InventoryUpdateRequest,
@@ -394,6 +395,51 @@ export class PrismaStore implements DataStore {
     };
 
     return result;
+  }
+
+  async authenticateGoogle(profile: GoogleAuthProfile): Promise<LoginResponse> {
+    await this.ensureBootstrapUser();
+
+    const email = profile.email.trim().toLowerCase();
+    const name = profile.name.trim() || email.split("@")[0] || "CKMedWare User";
+
+    if (!email) {
+      throw new Error("Google account email is required.");
+    }
+
+    const existingUser = await this.prisma.user.findUnique({ where: { email } });
+    const user =
+      existingUser ??
+      await this.prisma.user.create({
+        data: {
+          id: `usr_${randomUUID()}`,
+          name,
+          email,
+          passwordHash: hashPassword(randomUUID()),
+          role: (await this.prisma.user.count()) > 0 ? UserRole.dispatcher : UserRole.admin,
+        },
+      });
+
+    if (existingUser && existingUser.name !== name) {
+      await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: { name },
+      });
+      user.name = name;
+    }
+
+    const token = createToken();
+    await this.prisma.session.create({
+      data: {
+        token,
+        userId: user.id,
+      },
+    });
+
+    return {
+      token,
+      user: toUser(user),
+    };
   }
 
   async signup(input: SignupRequest) {

@@ -265,6 +265,15 @@ export type LoginRequest = {
   password: string;
 };
 
+export type GoogleLoginRequest = {
+  idToken: string;
+};
+
+export type GoogleAuthProfile = {
+  email: string;
+  name: string;
+};
+
 export type SignupRequest = {
   name: string;
   email: string;

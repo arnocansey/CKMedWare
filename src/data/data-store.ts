@@ -9,6 +9,7 @@ import type {
   InventoryActivityResponse,
   InventoryUpdateRequest,
   InventoryResponse,
+  GoogleAuthProfile,
   LoginResponse,
   OrdersResponse,
   PurchaseOrder,
@@ -31,6 +32,7 @@ import type {
 
 export interface DataStore {
   authenticate(email: string, password: string): Promise<LoginResponse | null>;
+  authenticateGoogle(profile: GoogleAuthProfile): Promise<LoginResponse>;
   signup(input: SignupRequest): Promise<LoginResponse>;
   refreshSession(token: string): Promise<LoginResponse | null>;
   revokeSession(token: string): Promise<void>;
