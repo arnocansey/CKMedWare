@@ -50,7 +50,7 @@ import type {
 } from "../types.js";
 
 const EXPIRY_WATCHLIST_DAYS = 180;
-const MAIN_WAREHOUSE_NAME = "Main Pharmacy Store";
+const MAIN_WAREHOUSE_NAMES = ["Main Pharmacy Store", "Main Warehouse"];
 
 function hashPassword(password: string) {
   return createHash("sha256").update(password).digest("hex");
@@ -256,6 +256,20 @@ function parseExpiryDate(value: string) {
   return expiryDate;
 }
 
+function parseOptionalDateOnly(value?: string) {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error("Enter a valid order received or expected date.");
+  }
+
+  return parsedDate;
+}
+
 function sumUnits(
   items: Array<{
     quantity: number;
@@ -333,6 +347,11 @@ export class PrismaStore implements DataStore {
         unitsRemaining: 0,
       },
     });
+  }
+
+  async cleanupExpiredInventory() {
+    await this.ensureBootstrapUser();
+    await this.applyExpiredStockAdjustments();
   }
 
   private async ensureBootstrapUser() {
@@ -721,6 +740,7 @@ export class PrismaStore implements DataStore {
           total: formatCurrency(totalValue),
           totalValue,
           date: formatDateOnly(order.createdAt),
+          expectedReceivedAt: order.expectedReceivedAt?.toISOString() ?? null,
           receivedAt: order.receivedAt?.toISOString() ?? null,
           createdAt: order.createdAt.toISOString(),
           updatedAt: order.updatedAt.toISOString(),
@@ -820,6 +840,8 @@ export class PrismaStore implements DataStore {
       throw new Error("Add at least one order item.");
     }
 
+    const expectedReceivedAt = parseOptionalDateOnly(input.expectedReceivedAt);
+
     const items = input.items.map((item) => {
       const drugName = item.drugName.trim();
       const quantity = Math.max(0, Math.floor(Number(item.quantity) || 0));
@@ -843,6 +865,7 @@ export class PrismaStore implements DataStore {
         orderNumber: createPurchaseOrderNumber(),
         supplierName,
         status: PurchaseOrderStatus.pending,
+        expectedReceivedAt,
         items: {
           create: items,
         },
@@ -868,6 +891,7 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(order.createdAt),
+      expectedReceivedAt: order.expectedReceivedAt?.toISOString() ?? null,
       receivedAt: null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
@@ -963,6 +987,7 @@ export class PrismaStore implements DataStore {
       total: formatCurrency(totalValue),
       totalValue,
       date: formatDateOnly(updated.createdAt),
+      expectedReceivedAt: updated.expectedReceivedAt?.toISOString() ?? null,
       receivedAt: updated.receivedAt?.toISOString() ?? null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
@@ -1659,7 +1684,7 @@ export class PrismaStore implements DataStore {
       this.prisma.outlet.findFirst({
         where: {
           isActive: true,
-          name: { not: MAIN_WAREHOUSE_NAME },
+          name: { notIn: MAIN_WAREHOUSE_NAMES },
         },
         orderBy: { name: "asc" },
       }),
@@ -1725,7 +1750,7 @@ export class PrismaStore implements DataStore {
             where: {
               id: input.outletId,
               isActive: true,
-              name: { not: MAIN_WAREHOUSE_NAME },
+              name: { notIn: MAIN_WAREHOUSE_NAMES },
             },
           })
         : null) ??
@@ -1734,7 +1759,11 @@ export class PrismaStore implements DataStore {
             where: {
               name: input.outletName,
               isActive: true,
-              NOT: { name: MAIN_WAREHOUSE_NAME },
+              NOT: {
+                name: {
+                  in: MAIN_WAREHOUSE_NAMES,
+                },
+              },
             },
           })
         : null);

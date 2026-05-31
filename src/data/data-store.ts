@@ -50,6 +50,7 @@ export interface DataStore {
   completeDeliveryStop(id: string): Promise<DeliveriesResponse>;
   getReports(): Promise<ReportsResponse>;
   getInventory(options?: { q?: string; page?: number; limit?: number }): Promise<InventoryResponse>;
+  cleanupExpiredInventory(): Promise<void>;
   getInventoryActivity(): Promise<InventoryActivityResponse>;
   listBranches(): Promise<BranchListResponse>;
   listVehicles(): Promise<VehicleListResponse>;

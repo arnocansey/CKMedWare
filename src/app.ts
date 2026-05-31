@@ -22,6 +22,9 @@ import type {
 } from "./types.js";
 
 const googleOAuthClient = new OAuth2Client();
+const expiryCleanupThrottleMs = 60 * 60 * 1000;
+let lastExpiryCleanupAt = 0;
+let pendingExpiryCleanup: Promise<void> | null = null;
 
 type AsyncRouteHandler = (
   req: express.Request,
@@ -154,6 +157,38 @@ function authMiddleware(req: express.Request, res: express.Response, next: expre
     });
 }
 
+async function runThrottledExpiryCleanup() {
+  const now = Date.now();
+
+  if (now - lastExpiryCleanupAt < expiryCleanupThrottleMs) {
+    return;
+  }
+
+  if (!pendingExpiryCleanup) {
+    lastExpiryCleanupAt = now;
+    pendingExpiryCleanup = store.cleanupExpiredInventory().finally(() => {
+      pendingExpiryCleanup = null;
+    });
+  }
+
+  await pendingExpiryCleanup;
+}
+
+function expiryCleanupMiddleware(req: express.Request, _res: express.Response, next: express.NextFunction) {
+  if (isPublicPath(req.path)) {
+    next();
+    return;
+  }
+
+  runThrottledExpiryCleanup()
+    .then(() => next())
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "Expired inventory cleanup failed";
+      console.error(message);
+      next();
+    });
+}
+
 export function createApp() {
   const app = express();
 
@@ -183,6 +218,7 @@ export function createApp() {
   app.use(cors());
   app.use(express.json());
   app.use(authMiddleware);
+  app.use(expiryCleanupMiddleware);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "ckmedware-backend" });
@@ -372,8 +408,14 @@ export function createApp() {
       }
     }
 
+    if (body.expectedReceivedAt && !isIsoDateOnly(body.expectedReceivedAt)) {
+      res.status(400).json({ message: "expectedReceivedAt must use YYYY-MM-DD format." });
+      return;
+    }
+
     const response = await store.createPurchaseOrder({
       supplierName: body?.supplierName ?? "",
+      expectedReceivedAt: body?.expectedReceivedAt,
       items: body?.items ?? [],
     });
 
@@ -470,7 +512,7 @@ export function createApp() {
   app.get("/api/exports/purchase-orders.csv", asyncHandler(async (_req, res) => {
     const orders = await store.getPurchaseOrders({ page: 1, limit: 1000 });
     const rows = [
-      ["Order Number", "Supplier", "Status", "Items", "Units", "Total", "Created At", "Updated At"],
+      ["Order Number", "Supplier", "Status", "Items", "Units", "Total", "Created At"],
       ...orders.orders.map((order) => [
         order.orderNumber,
         order.supplier,
@@ -479,7 +521,6 @@ export function createApp() {
         order.units,
         order.totalValue,
         order.createdAt,
-        order.updatedAt,
       ]),
     ];
     const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");

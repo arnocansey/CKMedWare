@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PersistedDatabase } from "../src/types.js";
 
 describe("CKMedWare API integration", () => {
   let dataDir: string;
@@ -73,6 +74,48 @@ describe("CKMedWare API integration", () => {
           item.drugName === "Paracetamol" && item.quantity === 120,
       ),
     ).toBe(true);
+  });
+
+  it("cleans expired stock before returning inventory", async () => {
+    const { app, token } = await createAuthenticatedClient();
+    const storePath = path.join(dataDir, "store.json");
+    const database = JSON.parse(readFileSync(storePath, "utf8")) as PersistedDatabase;
+    const now = new Date().toISOString();
+
+    database.inventory = {
+      items: [
+        {
+          id: "expired-stock-1",
+          drugName: "Expired Medicine",
+          quantity: 12,
+          expiryDate: "2020-01-01",
+          costPrice: 15,
+          batchNumber: "EXP-001",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    };
+    writeFileSync(storePath, JSON.stringify(database, null, 2));
+
+    const inventoryResponse = await request(app)
+      .get("/api/inventory")
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(
+      inventoryResponse.body.items.some(
+        (item: { id: string; drugName: string }) =>
+          item.id === "expired-stock-1" || item.drugName === "Expired Medicine",
+      ),
+    ).toBe(false);
+
+    const persisted = JSON.parse(readFileSync(storePath, "utf8")) as PersistedDatabase;
+    expect(
+      persisted.inventory?.items.some(
+        (item) => item.id === "expired-stock-1" || item.drugName === "Expired Medicine",
+      ),
+    ).toBe(false);
   });
 
   it("refreshes and revokes token sessions", async () => {

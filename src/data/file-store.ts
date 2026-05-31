@@ -209,6 +209,12 @@ export class FileStore implements DataStore {
       .filter((item) => item.quantity > 0);
   }
 
+  async cleanupExpiredInventory() {
+    const database = this.readDatabase();
+    this.normalizeExpiredInventory(database);
+    this.writeDatabase(database);
+  }
+
   async authenticate(email: string, password: string) {
     const database = this.readDatabase();
     const user = database.users.find((entry) => entry.email.toLowerCase() === email.toLowerCase());

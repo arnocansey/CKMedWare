@@ -166,6 +166,7 @@ export const PurchaseOrderScalarFieldEnum = {
   orderNumber: 'orderNumber',
   supplierName: 'supplierName',
   status: 'status',
+  expectedReceivedAt: 'expectedReceivedAt',
   receivedAt: 'receivedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

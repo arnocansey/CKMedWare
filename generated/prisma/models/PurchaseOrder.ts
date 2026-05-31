@@ -29,6 +29,7 @@ export type PurchaseOrderMinAggregateOutputType = {
   orderNumber: string | null
   supplierName: string | null
   status: $Enums.PurchaseOrderStatus | null
+  expectedReceivedAt: Date | null
   receivedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -39,6 +40,7 @@ export type PurchaseOrderMaxAggregateOutputType = {
   orderNumber: string | null
   supplierName: string | null
   status: $Enums.PurchaseOrderStatus | null
+  expectedReceivedAt: Date | null
   receivedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -49,6 +51,7 @@ export type PurchaseOrderCountAggregateOutputType = {
   orderNumber: number
   supplierName: number
   status: number
+  expectedReceivedAt: number
   receivedAt: number
   createdAt: number
   updatedAt: number
@@ -61,6 +64,7 @@ export type PurchaseOrderMinAggregateInputType = {
   orderNumber?: true
   supplierName?: true
   status?: true
+  expectedReceivedAt?: true
   receivedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -71,6 +75,7 @@ export type PurchaseOrderMaxAggregateInputType = {
   orderNumber?: true
   supplierName?: true
   status?: true
+  expectedReceivedAt?: true
   receivedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -81,6 +86,7 @@ export type PurchaseOrderCountAggregateInputType = {
   orderNumber?: true
   supplierName?: true
   status?: true
+  expectedReceivedAt?: true
   receivedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -164,6 +170,7 @@ export type PurchaseOrderGroupByOutputType = {
   orderNumber: string
   supplierName: string
   status: $Enums.PurchaseOrderStatus
+  expectedReceivedAt: Date | null
   receivedAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -195,6 +202,7 @@ export type PurchaseOrderWhereInput = {
   orderNumber?: Prisma.StringFilter<"PurchaseOrder"> | string
   supplierName?: Prisma.StringFilter<"PurchaseOrder"> | string
   status?: Prisma.EnumPurchaseOrderStatusFilter<"PurchaseOrder"> | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.DateTimeNullableFilter<"PurchaseOrder"> | Date | string | null
   receivedAt?: Prisma.DateTimeNullableFilter<"PurchaseOrder"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"PurchaseOrder"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PurchaseOrder"> | Date | string
@@ -206,6 +214,7 @@ export type PurchaseOrderOrderByWithRelationInput = {
   orderNumber?: Prisma.SortOrder
   supplierName?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  expectedReceivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -220,6 +229,7 @@ export type PurchaseOrderWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PurchaseOrderWhereInput | Prisma.PurchaseOrderWhereInput[]
   supplierName?: Prisma.StringFilter<"PurchaseOrder"> | string
   status?: Prisma.EnumPurchaseOrderStatusFilter<"PurchaseOrder"> | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.DateTimeNullableFilter<"PurchaseOrder"> | Date | string | null
   receivedAt?: Prisma.DateTimeNullableFilter<"PurchaseOrder"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"PurchaseOrder"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"PurchaseOrder"> | Date | string
@@ -231,6 +241,7 @@ export type PurchaseOrderOrderByWithAggregationInput = {
   orderNumber?: Prisma.SortOrder
   supplierName?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  expectedReceivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   receivedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -247,6 +258,7 @@ export type PurchaseOrderScalarWhereWithAggregatesInput = {
   orderNumber?: Prisma.StringWithAggregatesFilter<"PurchaseOrder"> | string
   supplierName?: Prisma.StringWithAggregatesFilter<"PurchaseOrder"> | string
   status?: Prisma.EnumPurchaseOrderStatusWithAggregatesFilter<"PurchaseOrder"> | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PurchaseOrder"> | Date | string | null
   receivedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"PurchaseOrder"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"PurchaseOrder"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"PurchaseOrder"> | Date | string
@@ -257,6 +269,7 @@ export type PurchaseOrderCreateInput = {
   orderNumber: string
   supplierName: string
   status?: $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Date | string | null
   receivedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -268,6 +281,7 @@ export type PurchaseOrderUncheckedCreateInput = {
   orderNumber: string
   supplierName: string
   status?: $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Date | string | null
   receivedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -279,6 +293,7 @@ export type PurchaseOrderUpdateInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -290,6 +305,7 @@ export type PurchaseOrderUncheckedUpdateInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -301,6 +317,7 @@ export type PurchaseOrderCreateManyInput = {
   orderNumber: string
   supplierName: string
   status?: $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Date | string | null
   receivedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -311,6 +328,7 @@ export type PurchaseOrderUpdateManyMutationInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -321,6 +339,7 @@ export type PurchaseOrderUncheckedUpdateManyInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -331,6 +350,7 @@ export type PurchaseOrderCountOrderByAggregateInput = {
   orderNumber?: Prisma.SortOrder
   supplierName?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  expectedReceivedAt?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -341,6 +361,7 @@ export type PurchaseOrderMaxOrderByAggregateInput = {
   orderNumber?: Prisma.SortOrder
   supplierName?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  expectedReceivedAt?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -351,6 +372,7 @@ export type PurchaseOrderMinOrderByAggregateInput = {
   orderNumber?: Prisma.SortOrder
   supplierName?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  expectedReceivedAt?: Prisma.SortOrder
   receivedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -388,6 +410,7 @@ export type PurchaseOrderCreateWithoutItemsInput = {
   orderNumber: string
   supplierName: string
   status?: $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Date | string | null
   receivedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -398,6 +421,7 @@ export type PurchaseOrderUncheckedCreateWithoutItemsInput = {
   orderNumber: string
   supplierName: string
   status?: $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Date | string | null
   receivedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -424,6 +448,7 @@ export type PurchaseOrderUpdateWithoutItemsInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -434,6 +459,7 @@ export type PurchaseOrderUncheckedUpdateWithoutItemsInput = {
   orderNumber?: Prisma.StringFieldUpdateOperationsInput | string
   supplierName?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumPurchaseOrderStatusFieldUpdateOperationsInput | $Enums.PurchaseOrderStatus
+  expectedReceivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   receivedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -475,6 +501,7 @@ export type PurchaseOrderSelect<ExtArgs extends runtime.Types.Extensions.Interna
   orderNumber?: boolean
   supplierName?: boolean
   status?: boolean
+  expectedReceivedAt?: boolean
   receivedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -487,6 +514,7 @@ export type PurchaseOrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   orderNumber?: boolean
   supplierName?: boolean
   status?: boolean
+  expectedReceivedAt?: boolean
   receivedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -497,6 +525,7 @@ export type PurchaseOrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   orderNumber?: boolean
   supplierName?: boolean
   status?: boolean
+  expectedReceivedAt?: boolean
   receivedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -507,12 +536,13 @@ export type PurchaseOrderSelectScalar = {
   orderNumber?: boolean
   supplierName?: boolean
   status?: boolean
+  expectedReceivedAt?: boolean
   receivedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type PurchaseOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNumber" | "supplierName" | "status" | "receivedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["purchaseOrder"]>
+export type PurchaseOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNumber" | "supplierName" | "status" | "expectedReceivedAt" | "receivedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["purchaseOrder"]>
 export type PurchaseOrderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.PurchaseOrder$itemsArgs<ExtArgs>
   _count?: boolean | Prisma.PurchaseOrderCountOutputTypeDefaultArgs<ExtArgs>
@@ -530,6 +560,7 @@ export type $PurchaseOrderPayload<ExtArgs extends runtime.Types.Extensions.Inter
     orderNumber: string
     supplierName: string
     status: $Enums.PurchaseOrderStatus
+    expectedReceivedAt: Date | null
     receivedAt: Date | null
     createdAt: Date
     updatedAt: Date
@@ -961,6 +992,7 @@ export interface PurchaseOrderFieldRefs {
   readonly orderNumber: Prisma.FieldRef<"PurchaseOrder", 'String'>
   readonly supplierName: Prisma.FieldRef<"PurchaseOrder", 'String'>
   readonly status: Prisma.FieldRef<"PurchaseOrder", 'PurchaseOrderStatus'>
+  readonly expectedReceivedAt: Prisma.FieldRef<"PurchaseOrder", 'DateTime'>
   readonly receivedAt: Prisma.FieldRef<"PurchaseOrder", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"PurchaseOrder", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"PurchaseOrder", 'DateTime'>

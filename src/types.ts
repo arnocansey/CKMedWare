@@ -90,6 +90,7 @@ export type PurchaseOrder = {
   total: string;
   totalValue: number;
   date: string;
+  expectedReceivedAt?: string | null;
   receivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -124,6 +125,7 @@ export type SupplierCreateRequest = {
 
 export type PurchaseOrderCreateRequest = {
   supplierName: string;
+  expectedReceivedAt?: string;
   items: Array<{
     drugName: string;
     quantity: number;
